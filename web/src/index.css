@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    /* Canvas Onyx: grafito neutro, sin tinte de marca. */
+    @apply bg-onyx-bg font-sans text-onyx-ink antialiased;
+  }
+
+  /* Anti-zoom de iOS: los campos por debajo de 16px hacen zoom al enfocar.
+     No se toca el zoom de pellizco ni el viewport. */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  @media (min-width: 640px) {
+    input,
+    textarea,
+    select {
+      font-size: 15px;
+    }
+  }
+
+  ::selection {
+    background-color: rgb(255 255 255 / 0.2);
+  }
+
+  /* Scrollbar discreto, solo color: el ancho lo deja el sistema. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(255 255 255 / 0.16) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: rgb(255 255 255 / 0.14);
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(255 255 255 / 0.24);
+  }
+}
+
+@layer utilities {
+  /* Brillo que recorre la parte rellena de la barra de progreso. */
+  @keyframes onyx-progress-shine {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(300%);
+    }
+  }
+
+  /* Barrido de la barra indeterminada. */
+  @keyframes onyx-progress-indeterminate {
+    0% {
+      transform: translateX(-110%);
+    }
+    100% {
+      transform: translateX(360%);
+    }
+  }
+
+  .progress-shine {
+    animation: onyx-progress-shine 1.6s ease-in-out infinite;
+  }
+
+  .progress-indeterminate {
+    animation: onyx-progress-indeterminate 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+}
+
+@layer components {
+  /* Foco unico de la app: anillo blanco translucido sobre el canvas. */
+  .focus-ring {
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-onyx-bg;
+  }
+}

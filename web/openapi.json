@@ -1,0 +1,3424 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Studyist API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/evento": {
+      "post": {
+        "tags": [
+          "evento"
+        ],
+        "summary": "Create Evento",
+        "description": "Crea un evento.\n\nPasos: normalizar payload.fecha a Europe/Madrid aware (si llega con\ntzinfo, con astimezone; si llega sin tzinfo, interpretarla como Madrid);\ncomprobar que asignatura_id existe (404 si no); validar el tema si llega\n(404 si no existe, 400 si es de otra asignatura); insertar la fila con una\nlista de Chat nueva y commit; llamar a calendar.create_event (que nunca\nlanza: devuelve (None, None) si falla) con la duracion en minutos; si\ndevuelve uid, asignar uid y calendar_url a la fila y hacer commit otra vez;\nsi devuelve None, loggear y devolver la fila con uid y calendar_url None\n(calendar_warning avisa al usuario).",
+        "operationId": "create_evento_evento_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventoCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventoRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "evento"
+        ],
+        "summary": "List Eventos",
+        "description": "Lista eventos, opcionalmente filtrados por rango y asignatura.\n\nPasos: normalizar from y to a Europe/Madrid (si llegan naive se\ninterpretan como hora de Madrid); si from es posterior a to, lanzar\nHTTPException 400; consultar los eventos filtrando por asignatura_id si\nllega; quedarse solo con los que caen dentro de [from, to] (ambos\ninclusivos) y devolver la lista ordenada por fecha ascendente y, a igual\nfecha, por id.\n\nEl filtro por fecha se hace en Python y no en SQL a proposito: la fecha se\nguarda como texto ISO-8601 con offset y comparar ese texto falla en el\ncambio de hora (02:30+02:00 es anterior a 02:30+01:00, pero ordena al\nreves).",
+        "operationId": "list_eventos_evento_get",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "name": "asignatura_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Asignatura Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EventoRead"
+                  },
+                  "title": "Response List Eventos Evento Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/evento/{evento_id}": {
+      "get": {
+        "tags": [
+          "evento"
+        ],
+        "summary": "Get Evento",
+        "description": "Devuelve un evento por id.\n\nPasos: buscar por PK con chats; si no existe, lanzar HTTPException 404;\ndevolverlo.",
+        "operationId": "get_evento_evento__evento_id__get",
+        "parameters": [
+          {
+            "name": "evento_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Evento Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventoRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "evento"
+        ],
+        "summary": "Update Evento",
+        "description": "Modifica un evento. La fecha, el uid y la calendar_url no son\nmodificables.\n\nPasos: buscar la fila (404 si no existe); recorrer\npayload.model_dump(exclude_unset=True); descartar fecha, uid y\ncalendar_url por si algun dia llegan; si llega chats, reemplazar la lista\ncompleta borrando las filas de chat anteriores y anadiendo las nuevas con\nevento_id; para el resto de campos, asignar el valor; commit; devolver.\n\nNota: no se replica en el calendario (el proyecto es unidireccional), asi\nque cambiar nombre, tipo, asignatura, tema o duracion no toca el evento de\niCloud.",
+        "operationId": "update_evento_evento__evento_id__put",
+        "parameters": [
+          {
+            "name": "evento_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Evento Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventoUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventoRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "evento"
+        ],
+        "summary": "Delete Evento",
+        "description": "Borra un evento.\n\nPasos: buscar la fila (404 si no existe); guardar su uid y su calendar_url;\ndelete + commit (los chats caen por cascada); si uid no era None, llamar a\ncalendar.delete_event(uid, url) en un try/except y solo loggear si falla.",
+        "operationId": "delete_evento_evento__evento_id__delete",
+        "parameters": [
+          {
+            "name": "evento_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Evento Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/asignatura": {
+      "get": {
+        "tags": [
+          "asignatura"
+        ],
+        "summary": "List Asignaturas",
+        "description": "Lista todas las asignaturas con cuantos temas tiene cada una.\n\nPasos: consultar ordenando por year, semester y name; cargar los temas de\ntodas las asignaturas en una sola consulta extra con selectinload, para que\ntema_count no dispare una consulta por asignatura (N+1); devolver la lista.",
+        "operationId": "list_asignaturas_asignatura_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AsignaturaRead"
+                  },
+                  "type": "array",
+                  "title": "Response List Asignaturas Asignatura Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "asignatura"
+        ],
+        "summary": "Create Asignatura",
+        "description": "Crea una asignatura.\n\nPasos: comprobar que no existe otra con el mismo nombre (409 si ya existe,\npor el UNIQUE de la tabla); insertar; commit; devolver la fila.",
+        "operationId": "create_asignatura_asignatura_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AsignaturaCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsignaturaRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/asignatura/{asignatura_id}": {
+      "get": {
+        "tags": [
+          "asignatura"
+        ],
+        "summary": "Get Asignatura",
+        "description": "Devuelve una asignatura por id, con cuantos temas tiene.\n\nPasos: buscar por PK cargando sus temas con selectinload (tema_count los\nnecesita); 404 si no existe; devolverla.",
+        "operationId": "get_asignatura_asignatura__asignatura_id__get",
+        "parameters": [
+          {
+            "name": "asignatura_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Asignatura Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsignaturaRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "asignatura"
+        ],
+        "summary": "Update Asignatura",
+        "description": "Modifica una asignatura.\n\nPasos: buscar la fila (404 si no existe); aplicar\nmodel_dump(exclude_unset=True); si se cambia el nombre, comprobar el UNIQUE\ny devolver 409 en caso de colision; commit; devolver la fila.",
+        "operationId": "update_asignatura_asignatura__asignatura_id__put",
+        "parameters": [
+          {
+            "name": "asignatura_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Asignatura Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AsignaturaUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsignaturaRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "asignatura"
+        ],
+        "summary": "Delete Asignatura",
+        "description": "Borra una asignatura.\n\nPasos: buscar la fila (404 si no existe); delete + commit. Los eventos\n(con sus chats) y los temas (con sus filas de tema_file y\ntema_flashcard_set) se borran en cascada por la FK: el engine activa\nPRAGMA foreign_keys en cada conexion.\n\nLos files y los flashcard_sets NO se borran: solo se pierden las\nreferencias desde los temas.",
+        "operationId": "delete_asignatura_asignatura__asignatura_id__delete",
+        "parameters": [
+          {
+            "name": "asignatura_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Asignatura Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat/thread": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Get Thread",
+        "description": "Devuelve el hilo global o el de un archivo, creandolo vacio si falta.\n\nPasos: resolver el hilo con _get_or_create_thread; contar sus mensajes; y\ndevolver el hilo con message_count calculado.",
+        "operationId": "get_thread_chat_thread_get",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Id del archivo; omitido devuelve el hilo global",
+              "title": "File Id"
+            },
+            "description": "Id del archivo; omitido devuelve el hilo global"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatThreadRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat/messages/stream": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Send Message Stream",
+        "description": "Igual que send_message, pero devuelve la respuesta como SSE.\n\nPasos: resolver el hilo; guardar el mensaje del usuario; construir el\nhistorial con los ultimos HISTORY_LIMIT mensajes; preparar el stream con\nopen_chat_stream; devolver un StreamingResponse que emite \"meta\" (modelo e\nids), un \"delta\" por trozo de texto, y al final \"done\" con los dos mensajes\nya guardados, o \"error\" si el modelo falla.\n\nEl mensaje del asistente se guarda al terminar, en una sesion propia: la\nsesion de la dependencia ya puede estar cerrada mientras se hace streaming.\nSi el cliente corta, no se guarda nada: el mensaje del usuario queda y se\npuede reintentar.",
+        "operationId": "send_message_stream_chat_messages_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatMessageCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat/messages": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "List Messages",
+        "description": "Lista los mensajes del hilo, del mas antiguo al mas reciente.\n\nPasos: resolver el hilo con _get_or_create_thread; consultar sus mensajes\nordenados ascendentemente por id; aplicar limit; devolverlos.",
+        "operationId": "list_messages_chat_messages_get",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Id del archivo; omitido usa el hilo global",
+              "title": "File Id"
+            },
+            "description": "Id del archivo; omitido usa el hilo global"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 200,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChatMessageRead"
+                  },
+                  "title": "Response List Messages Chat Messages Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Send Message",
+        "description": "Guarda el mensaje del usuario, pide respuesta al modelo y la guarda.\n\nPasos: resolver el hilo con _get_or_create_thread (404 si el archivo no\nexiste); guardar el mensaje user y actualizar thread.updated_at con commit;\nleer los ultimos HISTORY_LIMIT mensajes del hilo en orden ascendente y\nmapearlos a {\"role\", \"content\"}; si hay file_id, pasar [file.path] como\nfiles; llamar a send_chat con model_type \"general\"; si falla, loggear y\ndevolver 502 dejando guardado el mensaje del usuario; si va bien, guardar el\nmensaje assistant con el modelo devuelto, actualizar thread.updated_at,\ncommit y devolver los dos mensajes.",
+        "operationId": "send_message_chat_messages_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatMessageCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatSendResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Clear Messages",
+        "description": "Borra el historial del hilo, sin borrar el hilo ni el archivo.\n\nPasos: resolver el hilo con _get_or_create_thread; borrar solo las filas de\nchat_message con ese thread_id; commit.",
+        "operationId": "clear_messages_chat_messages_delete",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Id del archivo; omitido usa el hilo global",
+              "title": "File Id"
+            },
+            "description": "Id del archivo; omitido usa el hilo global"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tema": {
+      "post": {
+        "tags": [
+          "tema"
+        ],
+        "summary": "Create Tema",
+        "description": "Crea un tema con sus relaciones.\n\nPasos: comprobar que asignatura_id existe (404 si no); validar el tema\npadre, si llega (existe, es de la misma asignatura); comprobar que todos\nlos file_ids y flashcard_set_ids existen (404 con la lista de ids que\nfaltan); insertar la fila; insertar las filas de tema_file y\ntema_flashcard_set; commit; devolver el tema con las listas rellenas.\n\nLas filas de las tablas intermedias las escribe SQLAlchemy al asignar las\nrelaciones (tema.files / tema.flashcard_sets), no un INSERT manual.",
+        "operationId": "create_tema_tema_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemaCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemaRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "tema"
+        ],
+        "summary": "List Temas",
+        "description": "Lista todos los temas, con filtro opcional por asignatura.\n\nPasos: consultar los temas (con where por asignatura_id si llega) con sus\nrelaciones; ordenar en Python por asignatura_id y por orden natural del\nnombre; devolver la lista.\n\nEl orden es natural, no alfabetico puro: se parte el nombre por los tramos\nnumericos, de forma que \"Tema 2\" va antes que \"Tema 10\". Se hace en Python\nporque SQLite no tiene una funcion para esto y el volumen es minimo. El\nfiltro va en SQL y el orden se aplica despues, sobre lo ya filtrado.\n\nLa lista es plana: cada tema trae parent_id y child_ids, y el arbol se\nmonta en el cliente.",
+        "operationId": "list_temas_tema_get",
+        "parameters": [
+          {
+            "name": "asignatura_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Asignatura Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TemaRead"
+                  },
+                  "title": "Response List Temas Tema Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tema/{tema_id}": {
+      "get": {
+        "tags": [
+          "tema"
+        ],
+        "summary": "Get Tema",
+        "description": "Devuelve un tema por id.\n\nPasos: buscar por PK con sus relaciones; 404 si no existe; devolverlo.",
+        "operationId": "get_tema_tema__tema_id__get",
+        "parameters": [
+          {
+            "name": "tema_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tema Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemaRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "tema"
+        ],
+        "summary": "Update Tema",
+        "description": "Modifica un tema.\n\nPasos: buscar la fila (404 si no existe); calcular la asignatura y el padre\nresultantes (los nuevos si llegan, los actuales si no); validar el padre\n(existe, misma asignatura y sin ciclos); aplicar los campos simples que\nlleguen; si llega file_ids, borrar las filas de tema_file del tema e\ninsertar las nuevas; lo mismo con flashcard_set_ids; commit; devolver.\n\nMover un tema de sitio no toca sus hijos: solo cambia parent_id. Pasar\nparent_id a null lo devuelve a la raiz.",
+        "operationId": "update_tema_tema__tema_id__put",
+        "parameters": [
+          {
+            "name": "tema_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tema Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemaUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemaRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "tema"
+        ],
+        "summary": "Delete Tema",
+        "description": "Borra un tema y, en cascada, sus temas hijos.\n\nPasos: buscar la fila (404 si no existe); delete + commit. La FK de tema\ntiene ON DELETE CASCADE, asi que los hijos (y los nietos) caen con el; las\nfilas de las tablas intermedias tambien. Los files y los sets no se borran.",
+        "operationId": "delete_tema_tema__tema_id__delete",
+        "parameters": [
+          {
+            "name": "tema_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tema Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/files": {
+      "post": {
+        "tags": [
+          "files"
+        ],
+        "summary": "Create File",
+        "description": "Sube un archivo.\n\nPasos: leer el contenido del UploadFile; si supera\nfiles.MAX_UPLOAD_BYTES, devolver 413 antes de escribir nada; calcular el\nhash con files.compute_hash y consultar si ya existe una fila con ese hash;\nsi existe, devolver 409 incluyendo el id del file existente; si no, llamar\na files.save para clasificarlo, escribirlo y generar el thumbnail; insertar\nla fila; flush para tener el id (el trigger file_fts_insert ya creo la fila\ndel indice con content vacio); rellenar ese content con files.extract_text\n(texto plano o texto del PDF); commit; devolver.\n\nEl 409 lleva el id del archivo que ya existe para que el frontend pueda\nreutilizarlo (por ejemplo, enlazarlo a un tema) sin resubir nada.",
+        "operationId": "create_file_files_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_file_files_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "files"
+        ],
+        "summary": "List Files",
+        "description": "Lista archivos, con busqueda y filtros opcionales.\n\nPasos: si llega q, sanearlo con _fts_query y pedir a file_fts los rowid que\ncasan con MATCH, ordenados por rank; si no hay ninguno, devolver lista\nvacia; si llega type, filtrar por prefijo (image, text, application o un\nvalor terminado en \"/\") o por igualdad exacta; si llega tema_id, unir con\ntema_file y filtrar por esa columna; ordenar por name (orden estable) y\nlimitar el resultado. Los filtros se combinan entre si.\n\nSin q se consulta solo la tabla file: el indice no aporta nada.",
+        "operationId": "list_files_files_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "name": "tema_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tema Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "Numero maximo de archivos devueltos",
+              "default": 100,
+              "title": "Limit"
+            },
+            "description": "Numero maximo de archivos devueltos"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FileRead"
+                  },
+                  "title": "Response List Files Files Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/files/{file_id}": {
+      "get": {
+        "tags": [
+          "files"
+        ],
+        "summary": "Get File",
+        "description": "Devuelve un archivo por id.\n\nPasos: buscar por PK; 404 si no existe; devolverlo.",
+        "operationId": "get_file_files__file_id__get",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "File Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "files"
+        ],
+        "summary": "Update File",
+        "description": "Renombra un archivo.\n\nPasos: buscar la fila (404 si no existe); cambiar solo la columna name.\nEl path en disco no se toca.",
+        "operationId": "update_file_files__file_id__put",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "File Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FileUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "files"
+        ],
+        "summary": "Delete File",
+        "description": "Borra un archivo y todas sus referencias.\n\nPasos: buscar la fila (404 si no existe); guardar path y thumbnail; borrar\nla fila y hacer commit (las filas de tema_file caen por CASCADE y las\nflashcards que lo usan como front_img/back_img pasan a NULL por SET NULL);\ny solo despues llamar a files.delete(path, thumbnail) en un try/except,\npara que un fallo de disco no deshaga el borrado en la DB.",
+        "operationId": "delete_file_files__file_id__delete",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "File Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/flashcard_set": {
+      "get": {
+        "tags": [
+          "flashcard_set"
+        ],
+        "summary": "List Flashcard Sets",
+        "description": "Lista todos los sets.\n\nPasos: consultar ordenando por name, cargando la relacion flashcards, y\nconstruir flashcard_ids a partir de ella.",
+        "operationId": "list_flashcard_sets_flashcard_set_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FlashcardSetRead"
+                  },
+                  "type": "array",
+                  "title": "Response List Flashcard Sets Flashcard Set Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "flashcard_set"
+        ],
+        "summary": "Create Flashcard Set",
+        "description": "Crea un set vacio.\n\nPasos: insertar la fila; commit; devolver con flashcard_ids vacio.",
+        "operationId": "create_flashcard_set_flashcard_set_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlashcardSetCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlashcardSetRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/flashcard_set/from-files": {
+      "post": {
+        "tags": [
+          "flashcard_set"
+        ],
+        "summary": "Create Flashcard Set From Files",
+        "description": "Crea un set con tarjetas generadas a partir de uno o varios files.\n\nPasos: recuperar los files por id (404 con la lista de ids que faltan);\ninsertar el set vacio y hacer flush para tener ya su id; delegar en\ngenerate_into_set, que llama al modelo y deja las tarjetas en la sesion;\nconstruir la respuesta y solo entonces hacer commit.\n\nSi algo falla no queda set huerfano: get_session hace rollback al\npropagarse la excepcion. El commit va despues de serializar la respuesta,\npara que un error de validacion tampoco deje un set a medias.",
+        "operationId": "create_flashcard_set_from_files_flashcard_set_from_files_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlashcardSetFromFilesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlashcardSetFromFilesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/flashcard_set/{set_id}": {
+      "get": {
+        "tags": [
+          "flashcard_set"
+        ],
+        "summary": "Get Flashcard Set",
+        "description": "Devuelve un set por id.\n\nPasos: buscar por PK con sus flashcards; 404 si no existe; devolverlo.",
+        "operationId": "get_flashcard_set_flashcard_set__set_id__get",
+        "parameters": [
+          {
+            "name": "set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Set Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlashcardSetRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "flashcard_set"
+        ],
+        "summary": "Update Flashcard Set",
+        "description": "Renombra un set.\n\nPasos: buscar la fila (404 si no existe); asignar name; commit; devolver.",
+        "operationId": "update_flashcard_set_flashcard_set__set_id__put",
+        "parameters": [
+          {
+            "name": "set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Set Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlashcardSetUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlashcardSetRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "flashcard_set"
+        ],
+        "summary": "Delete Flashcard Set",
+        "description": "Borra un set y todas sus flashcards.\n\nPasos: buscar la fila (404 si no existe); delete + commit. Las flashcards\ncaen por ON DELETE CASCADE y las filas de tema_flashcard_set tambien.",
+        "operationId": "delete_flashcard_set_flashcard_set__set_id__delete",
+        "parameters": [
+          {
+            "name": "set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Set Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/flashcard_set/{set_id}/review": {
+      "get": {
+        "tags": [
+          "flashcard_set"
+        ],
+        "summary": "Review Flashcard Set",
+        "description": "Devuelve las tarjetas del set que toca repasar hoy.\n\nPasos: comprobar que el set existe (404); con all=true devolver todas las\ndel set ordenadas por id y sin aplicar limit (es el repaso completo); si\nno, quedarse con las que cumplen spaced_repetition.is_due, ordenarlas con\norder_due (nunca vistas primero, luego por next_review ascendente y por id)\ny cortar en limit.",
+        "operationId": "review_flashcard_set_flashcard_set__set_id__review_get",
+        "parameters": [
+          {
+            "name": "set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Set Id"
+            }
+          },
+          {
+            "name": "all",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "All"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FlashcardRead"
+                  },
+                  "title": "Response Review Flashcard Set Flashcard Set  Set Id  Review Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/flashcard_set/{set_id}/flashcards": {
+      "post": {
+        "tags": [
+          "flashcard_set"
+        ],
+        "summary": "Add Flashcard",
+        "description": "Mete una flashcard existente en este set (o la mueve desde otro).\n\nPasos: comprobar que el set existe (404); buscar la flashcard por id (404);\nsi ya pertenece a este set, devolver 409; asignar flashcard_set_id al nuevo\nset; commit; devolver el set actualizado.\n\nflashcard_id viaja como query param: POST /flashcard_set/{set_id}/flashcards?flashcard_id=N",
+        "operationId": "add_flashcard_flashcard_set__set_id__flashcards_post",
+        "parameters": [
+          {
+            "name": "set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Set Id"
+            }
+          },
+          {
+            "name": "flashcard_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "Id de la flashcard que se mueve a este set",
+              "title": "Flashcard Id"
+            },
+            "description": "Id de la flashcard que se mueve a este set"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlashcardSetRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/flashcard": {
+      "get": {
+        "tags": [
+          "flashcard"
+        ],
+        "summary": "List Flashcards",
+        "description": "Lista todas las flashcards.\n\nPasos: consultar ordenando por id; devolver la lista.",
+        "operationId": "list_flashcards_flashcard_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FlashcardRead"
+                  },
+                  "type": "array",
+                  "title": "Response List Flashcards Flashcard Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "flashcard"
+        ],
+        "summary": "Create Flashcard",
+        "description": "Crea una flashcard dentro de un set.\n\nPasos: comprobar que flashcard_set_id existe (404 si no); comprobar que\nfront_img_id y back_img_id existen si no son None (404); insertar con\nlast_seen a None y difficulty \"medium\"; commit; devolver.",
+        "operationId": "create_flashcard_flashcard_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlashcardCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlashcardRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/flashcard/review": {
+      "get": {
+        "tags": [
+          "flashcard"
+        ],
+        "summary": "Review Flashcards",
+        "description": "Devuelve las tarjetas que toca repasar hoy (test global).\n\nPasos: consultar las flashcards (de todos los sets, o solo de set_ids si\nllega); quedarse con las que cumplen spaced_repetition.is_due; ordenarlas\ncon order_due (nunca vistas primero, luego por next_review ascendente y por\nid); cortar en limit.\n\nLa ruta se declara antes de /{flashcard_id} para que FastAPI no interprete\n\"review\" como un id.",
+        "operationId": "review_flashcards_flashcard_review_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "set_ids",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Limita el repaso a estos sets; vacio = todos",
+              "title": "Set Ids"
+            },
+            "description": "Limita el repaso a estos sets; vacio = todos"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FlashcardRead"
+                  },
+                  "title": "Response Review Flashcards Flashcard Review Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/flashcard/{flashcard_id}": {
+      "get": {
+        "tags": [
+          "flashcard"
+        ],
+        "summary": "Get Flashcard",
+        "description": "Devuelve una flashcard por id.\n\nPasos: buscar por PK; 404 si no existe; devolverla.",
+        "operationId": "get_flashcard_flashcard__flashcard_id__get",
+        "parameters": [
+          {
+            "name": "flashcard_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Flashcard Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlashcardRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "flashcard"
+        ],
+        "summary": "Update Flashcard",
+        "description": "Modifica front, back o las imagenes de una flashcard.\n\nPasos: buscar la fila (404 si no existe); aplicar\nmodel_dump(exclude_unset=True); validar que las imagenes existan si no son\nNone; commit; devolver.\n\nNota: el set no se cambia aqui; para mover una tarjeta de set se usa\nPOST /flashcard_set/{id}/flashcards.",
+        "operationId": "update_flashcard_flashcard__flashcard_id__put",
+        "parameters": [
+          {
+            "name": "flashcard_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Flashcard Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlashcardUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlashcardRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "flashcard"
+        ],
+        "summary": "Delete Flashcard",
+        "description": "Borra una flashcard.\n\nPasos: buscar la fila (404 si no existe); delete + commit. Los files de sus\nimagenes no se tocan.",
+        "operationId": "delete_flashcard_flashcard__flashcard_id__delete",
+        "parameters": [
+          {
+            "name": "flashcard_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Flashcard Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/flashcard/{flashcard_id}/seen": {
+      "post": {
+        "tags": [
+          "flashcard"
+        ],
+        "summary": "Mark Seen",
+        "description": "Registra que el usuario ha repasado la tarjeta.\n\nPasos: buscar la fila (404 si no existe); asignar last_seen a\ndatetime.now(MADRID) (aware, Europe/Madrid) y difficulty al valor\nrecibido; commit; devolver la tarjeta.\n\nTODO abierto: aqui deberia reajustarse el intervalo de repaso, pero el\nalgoritmo no esta definido todavia. De momento solo se registra.",
+        "operationId": "mark_seen_flashcard__flashcard_id__seen_post",
+        "parameters": [
+          {
+            "name": "flashcard_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Flashcard Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlashcardSeen"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlashcardRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openrouter/send": {
+      "post": {
+        "tags": [
+          "openrouter"
+        ],
+        "summary": "Send",
+        "description": "Envia un mensaje a un modelo.\n\nPasos: llamar a openrouter.send con todos los campos del payload; devolver\ncontent y model. Traducir ValueError y FileNotFoundError a HTTPException\n400 con el mensaje original (model_type desconocido o prompt inexistente) y\nRuntimeError a 502 (fallo de OpenRouter).",
+        "operationId": "send_openrouter_send_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenrouterSendRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenrouterSendResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/study/flashcards": {
+      "post": {
+        "tags": [
+          "study"
+        ],
+        "summary": "Generate Flashcards",
+        "description": "Genera flashcards a partir de uno o varios files y las guarda en un set.\n\nPasos: comprobar que el set existe (404); recuperar los files por id (404\ncon la lista de ids que faltan); delegar en generate_into_set, que llama al\nmodelo e inserta las tarjetas; devolver creadas y descartadas.",
+        "operationId": "generate_flashcards_study_flashcards_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateFlashcardsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateFlashcardsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AsignaturaCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "year": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Year"
+          },
+          "semester": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ],
+            "title": "Semester"
+          },
+          "color": {
+            "type": "string",
+            "pattern": "^[0-9A-Fa-f]{6}$",
+            "title": "Color"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "year",
+          "semester",
+          "color"
+        ],
+        "title": "AsignaturaCreate",
+        "description": "Payload de creacion."
+      },
+      "AsignaturaRead": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "year": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Year"
+          },
+          "semester": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ],
+            "title": "Semester"
+          },
+          "color": {
+            "type": "string",
+            "pattern": "^[0-9A-Fa-f]{6}$",
+            "title": "Color"
+          },
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "tema_count": {
+            "type": "integer",
+            "title": "Tema Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "year",
+          "semester",
+          "color",
+          "id"
+        ],
+        "title": "AsignaturaRead",
+        "description": "Respuesta con la fila completa y cuantos temas tiene."
+      },
+      "AsignaturaUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 6.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          },
+          "semester": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  1,
+                  2
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semester"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9A-Fa-f]{6}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          }
+        },
+        "type": "object",
+        "title": "AsignaturaUpdate",
+        "description": "Payload de modificacion. Todos los campos opcionales."
+      },
+      "Body_create_file_files_post": {
+        "properties": {
+          "upload": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Upload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "upload"
+        ],
+        "title": "Body_create_file_files_post"
+      },
+      "ChatItem": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "url"
+        ],
+        "title": "ChatItem",
+        "description": "Chat externo asociado a un evento. En el request solo viaja el contenido;\nel evento lo pone la view a partir del path."
+      },
+      "ChatMessageCreate": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Content"
+          },
+          "file_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Id"
+          },
+          "file_mode": {
+            "type": "string",
+            "enum": [
+              "text",
+              "file"
+            ],
+            "title": "File Mode",
+            "description": "Solo aplica al archivo adjunto: texto extraido o PDF original",
+            "default": "text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "ChatMessageCreate",
+        "description": "Payload para enviar un mensaje al hilo.\n\nEl hilo no viaja en el cuerpo: la view lo resuelve con file_id (None para el\nhilo global de la pagina Principal)."
+      },
+      "ChatMessageRead": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "thread_id": {
+            "type": "integer",
+            "title": "Thread Id"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "thread_id",
+          "role",
+          "content",
+          "created_at"
+        ],
+        "title": "ChatMessageRead",
+        "description": "Mensaje ya guardado. model es NULL en los mensajes del usuario."
+      },
+      "ChatSendResponse": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/ChatMessageRead"
+          },
+          "assistant": {
+            "$ref": "#/components/schemas/ChatMessageRead"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "assistant"
+        ],
+        "title": "ChatSendResponse",
+        "description": "Respuesta del envio: el mensaje del usuario y el de la IA."
+      },
+      "ChatThreadRead": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "file_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "message_count": {
+            "type": "integer",
+            "title": "Message Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ChatThreadRead",
+        "description": "Hilo sin sus mensajes, solo con cuantos tiene."
+      },
+      "EventoCreate": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "Examen",
+              "Tarea"
+            ],
+            "title": "Type",
+            "description": "Examen o Tarea"
+          },
+          "asignatura_id": {
+            "type": "integer",
+            "title": "Asignatura Id"
+          },
+          "tema_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tema Id",
+            "description": "Tema opcional del evento; NULL si no tiene"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "fecha": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha"
+          },
+          "duration_minutes": {
+            "type": "integer",
+            "maximum": 1440.0,
+            "minimum": 5.0,
+            "title": "Duration Minutes",
+            "description": "Duracion en minutos del evento",
+            "default": 120
+          },
+          "chats": {
+            "items": {
+              "$ref": "#/components/schemas/ChatItem"
+            },
+            "type": "array",
+            "title": "Chats"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "asignatura_id",
+          "name",
+          "fecha"
+        ],
+        "title": "EventoCreate",
+        "description": "Payload de creacion. Incluye todos los campos."
+      },
+      "EventoRead": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "Examen",
+              "Tarea"
+            ],
+            "title": "Type",
+            "description": "Examen o Tarea"
+          },
+          "asignatura_id": {
+            "type": "integer",
+            "title": "Asignatura Id"
+          },
+          "tema_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tema Id",
+            "description": "Tema opcional del evento; NULL si no tiene"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "fecha": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha"
+          },
+          "duration_minutes": {
+            "type": "integer",
+            "maximum": 1440.0,
+            "minimum": 5.0,
+            "title": "Duration Minutes",
+            "description": "Duracion en minutos del evento",
+            "default": 120
+          },
+          "chats": {
+            "items": {
+              "$ref": "#/components/schemas/ChatItem"
+            },
+            "type": "array",
+            "title": "Chats"
+          },
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "tema_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tema Name",
+            "description": "Nombre del tema vinculado, si tiene"
+          },
+          "uid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uid"
+          },
+          "calendar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Url",
+            "description": "URL del VEVENT en iCloud; NULL si CalDAV fallo"
+          },
+          "calendar_warning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Warning",
+            "description": "Aviso si el evento no se pudo sincronizar con iCloud"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "asignatura_id",
+          "name",
+          "fecha",
+          "id"
+        ],
+        "title": "EventoRead",
+        "description": "Respuesta con la fila completa. uid es el UID de CalDAV y puede ser\nNone si el evento remoto no se pudo crear. calendar_warning lleva el aviso\npara el usuario en ese caso."
+      },
+      "EventoUpdate": {
+        "properties": {
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "Examen",
+                  "Tarea"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "asignatura_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asignatura Id"
+          },
+          "tema_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tema Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "duration_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1440.0,
+                "minimum": 5.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Minutes"
+          },
+          "chats": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ChatItem"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chats"
+          }
+        },
+        "type": "object",
+        "title": "EventoUpdate",
+        "description": "Payload de modificacion. La fecha queda fuera a proposito."
+      },
+      "FileRead": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "thumbnail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnail"
+          },
+          "hash": {
+            "type": "string",
+            "title": "Hash",
+            "description": "sha256 del contenido, sirve para deduplicar"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "type",
+          "path",
+          "size",
+          "thumbnail",
+          "hash"
+        ],
+        "title": "FileRead",
+        "description": "Respuesta con la fila completa. path es relativo a /files."
+      },
+      "FileUpdate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "FileUpdate",
+        "description": "Payload de modificacion. Solo se puede renombrar."
+      },
+      "FlashcardCreate": {
+        "properties": {
+          "front": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Front"
+          },
+          "back": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Back"
+          },
+          "front_img_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Front Img Id"
+          },
+          "back_img_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Back Img Id"
+          },
+          "flashcard_set_id": {
+            "type": "integer",
+            "title": "Flashcard Set Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "front",
+          "back",
+          "flashcard_set_id"
+        ],
+        "title": "FlashcardCreate",
+        "description": "Payload de creacion. Requiere el set al que pertenece la tarjeta."
+      },
+      "FlashcardRead": {
+        "properties": {
+          "front": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Front"
+          },
+          "back": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Back"
+          },
+          "front_img_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Front Img Id"
+          },
+          "back_img_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Back Img Id"
+          },
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "flashcard_set_id": {
+            "type": "integer",
+            "title": "Flashcard Set Id"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen"
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": [
+              "hard",
+              "medium",
+              "easy"
+            ],
+            "title": "Difficulty"
+          }
+        },
+        "type": "object",
+        "required": [
+          "front",
+          "back",
+          "id",
+          "flashcard_set_id",
+          "last_seen",
+          "difficulty"
+        ],
+        "title": "FlashcardRead",
+        "description": "Respuesta con la fila completa."
+      },
+      "FlashcardSeen": {
+        "properties": {
+          "difficulty": {
+            "type": "string",
+            "enum": [
+              "hard",
+              "medium",
+              "easy"
+            ],
+            "title": "Difficulty"
+          }
+        },
+        "type": "object",
+        "required": [
+          "difficulty"
+        ],
+        "title": "FlashcardSeen",
+        "description": "Payload del endpoint seen."
+      },
+      "FlashcardSetCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "FlashcardSetCreate",
+        "description": "Payload de creacion."
+      },
+      "FlashcardSetFromFilesRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "file_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "File Ids"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "pocas",
+                  "medio",
+                  "muchas"
+                ]
+              }
+            ],
+            "title": "Amount",
+            "description": "Numero exacto o una estimacion cualitativa",
+            "default": 10
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructions",
+            "description": "Indicaciones extra del usuario"
+          },
+          "file_mode": {
+            "type": "string",
+            "enum": [
+              "text",
+              "file"
+            ],
+            "title": "File Mode",
+            "description": "Solo aplica a los PDF: texto extraido o archivo original",
+            "default": "text"
+          },
+          "model_override": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Override"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "file_ids"
+        ],
+        "title": "FlashcardSetFromFilesRequest",
+        "description": "Payload para crear un set a partir de documentos.\n\namount acepta un numero exacto de tarjetas (1..50) o una estimacion\ncualitativa (\"pocas\", \"medio\", \"muchas\")."
+      },
+      "FlashcardSetFromFilesResponse": {
+        "properties": {
+          "set": {
+            "$ref": "#/components/schemas/FlashcardSetRead"
+          },
+          "created": {
+            "items": {
+              "$ref": "#/components/schemas/FlashcardRead"
+            },
+            "type": "array",
+            "title": "Created"
+          },
+          "discarded": {
+            "type": "integer",
+            "title": "Discarded"
+          }
+        },
+        "type": "object",
+        "required": [
+          "set",
+          "created",
+          "discarded"
+        ],
+        "title": "FlashcardSetFromFilesResponse",
+        "description": "Respuesta con el set creado, sus tarjetas y cuantas se descartaron."
+      },
+      "FlashcardSetRead": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "flashcard_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Flashcard Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "id"
+        ],
+        "title": "FlashcardSetRead",
+        "description": "Respuesta con la fila completa y los ids de sus tarjetas."
+      },
+      "FlashcardSetUpdate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "FlashcardSetUpdate",
+        "description": "Payload de modificacion."
+      },
+      "FlashcardUpdate": {
+        "properties": {
+          "front": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Front"
+          },
+          "back": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Back"
+          },
+          "front_img_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Front Img Id"
+          },
+          "back_img_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Back Img Id"
+          }
+        },
+        "type": "object",
+        "title": "FlashcardUpdate",
+        "description": "Payload de modificacion. La dificultad no se toca aqui: solo se cambia\ncon el endpoint de seen."
+      },
+      "GenerateFlashcardsRequest": {
+        "properties": {
+          "flashcard_set_id": {
+            "type": "integer",
+            "title": "Flashcard Set Id"
+          },
+          "file_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "File Ids"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "pocas",
+                  "medio",
+                  "muchas"
+                ]
+              }
+            ],
+            "title": "Amount",
+            "description": "Numero exacto o una estimacion cualitativa",
+            "default": 10
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructions",
+            "description": "Indicaciones extra del usuario"
+          },
+          "file_mode": {
+            "type": "string",
+            "enum": [
+              "text",
+              "file"
+            ],
+            "title": "File Mode",
+            "description": "Solo aplica a los PDF: texto extraido o archivo original",
+            "default": "text"
+          },
+          "model_override": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Override"
+          }
+        },
+        "type": "object",
+        "required": [
+          "flashcard_set_id",
+          "file_ids"
+        ],
+        "title": "GenerateFlashcardsRequest",
+        "description": "Payload para generar flashcards a partir de documentos.\n\nCon un int se piden exactamente esas tarjetas (como maximo 50). Con\n\"pocas\", \"medio\" o \"muchas\" el modelo decide cuantas, sin truncar despues\nlo que devuelva."
+      },
+      "GenerateFlashcardsResponse": {
+        "properties": {
+          "created": {
+            "items": {
+              "$ref": "#/components/schemas/FlashcardRead"
+            },
+            "type": "array",
+            "title": "Created"
+          },
+          "discarded": {
+            "type": "integer",
+            "title": "Discarded"
+          }
+        },
+        "type": "object",
+        "required": [
+          "created",
+          "discarded"
+        ],
+        "title": "GenerateFlashcardsResponse",
+        "description": "Respuesta con las tarjetas creadas y cuantas se descartaron."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "OpenrouterSendRequest": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "model_type": {
+            "type": "string",
+            "enum": [
+              "pdf",
+              "general"
+            ],
+            "title": "Model Type"
+          },
+          "system_prompt": {
+            "type": "string",
+            "title": "System Prompt",
+            "description": "Nombre del .txt en /prompts, sin extension"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files",
+            "description": "Paths relativos a /files (no absolutos)"
+          },
+          "file_mode": {
+            "type": "string",
+            "enum": [
+              "text",
+              "file"
+            ],
+            "title": "File Mode",
+            "description": "Solo aplica a los PDF: texto extraido o archivo original",
+            "default": "text"
+          },
+          "model_override": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Override"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message",
+          "model_type",
+          "system_prompt"
+        ],
+        "title": "OpenrouterSendRequest",
+        "description": "Payload para enviar un mensaje a un modelo."
+      },
+      "OpenrouterSendResponse": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content",
+          "model"
+        ],
+        "title": "OpenrouterSendResponse",
+        "description": "Respuesta con el texto generado y el modelo finalmente usado."
+      },
+      "TemaCreate": {
+        "properties": {
+          "asignatura_id": {
+            "type": "integer",
+            "title": "Asignatura Id"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id",
+            "description": "Tema del que cuelga este; NULL lo deja en la raiz"
+          },
+          "file_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "File Ids"
+          },
+          "flashcard_set_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Flashcard Set Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "asignatura_id",
+          "name"
+        ],
+        "title": "TemaCreate",
+        "description": "Payload de creacion."
+      },
+      "TemaRead": {
+        "properties": {
+          "asignatura_id": {
+            "type": "integer",
+            "title": "Asignatura Id"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id",
+            "description": "Tema del que cuelga este; NULL lo deja en la raiz"
+          },
+          "file_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "File Ids"
+          },
+          "flashcard_set_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Flashcard Set Ids"
+          },
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "child_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Child Ids",
+            "description": "Ids de los temas que cuelgan de este"
+          }
+        },
+        "type": "object",
+        "required": [
+          "asignatura_id",
+          "name",
+          "id"
+        ],
+        "title": "TemaRead",
+        "description": "Respuesta con la fila completa."
+      },
+      "TemaUpdate": {
+        "properties": {
+          "asignatura_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asignatura Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "file_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Ids"
+          },
+          "flashcard_set_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flashcard Set Ids"
+          }
+        },
+        "type": "object",
+        "title": "TemaUpdate",
+        "description": "Payload de modificacion. Los campos opcionales se aplican solo si\nllegan; las listas, si llegan, reemplazan las relaciones actuales.\nparent_id a null mueve el tema a la raiz."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

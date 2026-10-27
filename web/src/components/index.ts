@@ -5,5 +5,6 @@ export * from "./FileRow";
 export * from "./FlashcardViewer";
 export * from "./MarkdownEditor";
 export * from "./PdfModePicker";
+export * from "./RichText";
 export * from "./TemaPicker";
 export * from "./ui";

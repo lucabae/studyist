@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { RichText } from "./RichText";
 import { Button } from "./ui/Button";
 
 export type FlashcardGrade = "hard" | "medium" | "easy";
@@ -81,9 +82,10 @@ export function FlashcardViewer({
         <span className="block text-[11px] uppercase tracking-wide text-onyx-inkFaint">
           Pregunta
         </span>
-        <span className="mt-2 block whitespace-pre-wrap break-words text-[18px] leading-relaxed text-onyx-ink sm:text-[20px]">
-          {front}
-        </span>
+        <RichText
+          text={front}
+          className="mt-2 block text-[18px] leading-relaxed text-onyx-ink sm:text-[20px]"
+        />
         {frontImage && (
           <img
             src={frontImage}
@@ -97,9 +99,10 @@ export function FlashcardViewer({
             <span className="block text-[11px] uppercase tracking-wide text-onyx-inkFaint">
               Respuesta
             </span>
-            <span className="mt-2 block whitespace-pre-wrap break-words text-[17px] leading-relaxed text-onyx-ink">
-              {back}
-            </span>
+            <RichText
+              text={back}
+              className="mt-2 block text-[17px] leading-relaxed text-onyx-ink"
+            />
             {backImage && (
               <img
                 src={backImage}

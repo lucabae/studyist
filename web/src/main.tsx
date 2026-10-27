@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { ToastProvider } from "./components/ui/Toast";
 import { initApi } from "./lib/api";
+import "katex/dist/katex.min.css";
 import "./index.css";
 
 initApi();

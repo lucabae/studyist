@@ -160,8 +160,8 @@ Cada categoría de view aquí se lleva su propia carpeta, y su propio endpoint p
 ## Flashcard System
 Repaso espaciado por intervalos fijos (sin ease factor):
 - `hard`: vuelve a los **1 día**.
-- `medium`: vuelve a los **3 días**.
-- `easy`: vuelve a los **7 días**.
+- `medium`: vuelve a los **2 días**.
+- `easy`: vuelve a los **3 días**.
 - Nunca vista (`last_seen` NULL): toca hoy.
 - Al pulsar `seen` se actualiza `last_seen` a ahora y se guarda la dificultad reportada.
 - El tope de tarjetas por sesión lo elige el usuario; por defecto **20**.
@@ -267,7 +267,7 @@ Si eres agente: nunca crearás un archivo no mencionado en esta arquitectura (ex
         - openrouter.py: Interfaz super simple para interactuar con los modelos de openrouter
         - files.py: Hacer retrieve de files, borrarlos y subirlos.
         - generate_thumb.py: Le pasas un Path a un archivo y te genera un thumbnail en /thumb/ y te devuelve su path.
-        - spaced_repetition.py: Intervalos de repaso (hard 1d / medium 3d / easy 7d) y cálculo de si una tarjeta toca hoy.
+        - spaced_repetition.py: Intervalos de repaso (hard 1d / medium 2d / easy 3d) y cálculo de si una tarjeta toca hoy.
     - /views
         ... Todas las views mencionadas en [Views](#views)
         - /chat/router.py: Hilos y mensajes del chat interno (global y por archivo).

@@ -45,8 +45,8 @@ def _force_last_seen(db_session, card_id, last_seen, difficulty):
 def test_days_for_known_difficulties():
     """Cada dificultad tiene su intervalo fijo."""
     assert spaced_repetition.days_for("hard") == 1
-    assert spaced_repetition.days_for("medium") == 3
-    assert spaced_repetition.days_for("easy") == 7
+    assert spaced_repetition.days_for("medium") == 2
+    assert spaced_repetition.days_for("easy") == 3
 
 
 def test_days_for_unknown_difficulty_raises():

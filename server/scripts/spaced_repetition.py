@@ -1,7 +1,7 @@
 """Intervalos fijos de repaso espaciado (sin ease factor).
 
-Regla del proyecto (PROJECT.md, seccion Flashcard System): hard vuelve a los
-1 dia, medium a los 3 y easy a los 7. Una tarjeta nunca vista toca hoy.
+Regla del proyecto (PROJECT.md, seccion Flashcard System): hard vuelve al
+dia siguiente, medium a los 2 y easy a los 3. Una tarjeta nunca vista toca hoy.
 """
 
 from datetime import datetime, timedelta
@@ -10,7 +10,7 @@ from db.db import MADRID
 
 # Dias que espera una tarjeta antes de volver a tocar, segun la dificultad que
 # reporto el usuario.
-INTERVAL_DAYS: dict[str, int] = {"hard": 1, "medium": 3, "easy": 7}
+INTERVAL_DAYS: dict[str, int] = {"hard": 1, "medium": 2, "easy": 3}
 
 # Centinela para que las tarjetas nunca vistas queden antes que el resto al
 # ordenar por fecha de proximo repaso.

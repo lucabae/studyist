@@ -186,11 +186,15 @@ export function GenerateTopicCardsModal({
           "error",
         );
       } else {
-        toast(
+        const base =
           data.created.length === 1
             ? "Set creado con 1 tarjeta."
-            : `Set creado con ${data.created.length} tarjetas.`,
-          "success",
+            : `Set creado con ${data.created.length} tarjetas.`;
+        toast(
+          data.discarded > 0
+            ? `${base} ${data.discarded} descartada${data.discarded === 1 ? "" : "s"} por pasar de 2000 caracteres.`
+            : base,
+          data.discarded > 0 ? "info" : "success",
         );
       }
 

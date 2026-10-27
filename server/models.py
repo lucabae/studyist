@@ -25,8 +25,10 @@ FileMode = Literal["text", "file"]
 
 Name = Annotated[str, Field(min_length=1, max_length=200)]
 # Texto de una tarjeta (front/back). El generador descarta lo que pase de este
-# limite, asi que la respuesta puede validarlo sin romperse.
-CARD_TEXT_MAX_LENGTH = 500
+# limite, asi que la respuesta puede validarlo sin romperse. El prompt pide
+# explicaciones exhaustivas con referencias: 500 caracteres se quedaba corto y
+# tiraba la mayoria de tarjetas generadas.
+CARD_TEXT_MAX_LENGTH = 2000
 CardText = Annotated[str, Field(min_length=1, max_length=CARD_TEXT_MAX_LENGTH)]
 HexColor = Annotated[str, Field(pattern=r"^[0-9A-Fa-f]{6}$")]
 

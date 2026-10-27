@@ -126,11 +126,15 @@ export function GenerateSetModal({ open, onClose, onCreated }: GenerateSetModalP
       });
 
       const created = data.created.length;
-      toast(
+      const base =
         created === 1
           ? "Set generado con 1 tarjeta."
-          : `Set generado con ${created} tarjetas.`,
-        "success",
+          : `Set generado con ${created} tarjetas.`;
+      toast(
+        data.discarded > 0
+          ? `${base} ${data.discarded} descartada${data.discarded === 1 ? "" : "s"} por pasar de 2000 caracteres.`
+          : base,
+        data.discarded > 0 ? "info" : "success",
       );
       onCreated(data.set.id);
     } catch (error) {

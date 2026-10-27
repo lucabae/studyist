@@ -177,17 +177,16 @@ def test_from_files_passes_the_user_comment_to_the_model(
 
 
 def test_from_files_accepts_a_long_back(client, make_file, fake_openrouter):
-    """Una respuesta de 400 caracteres se guarda y se devuelve entera.
+    """Un back de 1500 caracteres se guarda entero.
 
-    Regresion del 2026-10-27: el modelo devolvia backs de mas de 200
-    caracteres, la validacion de la respuesta fallaba con 500 despues de
-    haber creado el set, y el usuario veia «Load failed» con tarjetas
-    huerfanas en la base de datos.
+    Regresion del 2026-10-27: el prompt pide explicaciones exhaustivas y el
+    modelo devolvia backs de cientos de caracteres; con el limite en 500 la
+    mayoria se descartaba y el set salia casi vacio.
     """
     import json
 
     file_row = make_file(name="tema.txt", content=b"apuntes de biologia")
-    long_back = "x" * 400
+    long_back = "x" * 1500
     fake_openrouter.send_reply = json.dumps(
         [{"front": "Pregunta larga", "back": long_back}], ensure_ascii=False
     )
@@ -214,7 +213,7 @@ def test_from_files_drops_cards_over_the_limit(client, make_file, fake_openroute
     fake_openrouter.send_reply = json.dumps(
         [
             {"front": "Vale", "back": "corta"},
-            {"front": "Demasiado", "back": "y" * 600},
+            {"front": "Demasiado", "back": "y" * 2500},
         ]
     )
 
@@ -227,3 +226,29 @@ def test_from_files_drops_cards_over_the_limit(client, make_file, fake_openroute
     body = response.json()
     assert len(body["created"]) == 1
     assert body["discarded"] == 1
+
+
+def test_from_files_keeps_a_batch_of_long_cards(client, make_file, fake_openrouter):
+    """Un lote de 16 tarjetas de ~900 caracteres se guarda entero.
+
+    Caso real del 2026-10-27: el modelo devolvio 16 tarjetas con explicaciones
+    y referencias; con el limite en 500 solo sobrevivieron 2.
+    """
+    import json
+
+    file_row = make_file(name="tema.txt", content=b"apuntes de seleccion optima")
+    cards = [
+        {"front": f"Pregunta {index}", "back": "x" * 900 + f" {index}"}
+        for index in range(16)
+    ]
+    fake_openrouter.send_reply = json.dumps(cards, ensure_ascii=False)
+
+    response = client.post(
+        "/flashcard_set/from-files",
+        json={"name": "Lote largo", "file_ids": [file_row.id], "amount": 16},
+    )
+    assert response.status_code == 201, response.text
+
+    body = response.json()
+    assert len(body["created"]) == 16
+    assert body["discarded"] == 0

@@ -349,9 +349,10 @@ export const updateTemaTemaTemaIdPut = <ThrowOnError extends boolean = false>(op
  * Pasos: si llega q, sanearlo con _fts_query y pedir a file_fts los rowid que
  * casan con MATCH, ordenados por rank; si no hay ninguno, devolver lista
  * vacia; si llega type, filtrar por prefijo (image, text, application o un
- * valor terminado en "/") o por igualdad exacta; si llega tema_id, unir con
- * tema_file y filtrar por esa columna; ordenar por name (orden estable) y
- * limitar el resultado. Los filtros se combinan entre si.
+ * valor terminado en "/") o por igualdad exacta; si llega kind, filtrar por
+ * el tipo de documento (teoria, examen, ejercicio, otros); si llega tema_id,
+ * unir con tema_file y filtrar por esa columna; ordenar por name (orden
+ * estable) y limitar el resultado. Los filtros se combinan entre si.
  *
  * Sin q se consulta solo la tabla file: el indice no aporta nada.
  */
@@ -367,9 +368,10 @@ export const listFilesFilesGet = <ThrowOnError extends boolean = false>(options?
  * hash con files.compute_hash y consultar si ya existe una fila con ese hash;
  * si existe, devolver 409 incluyendo el id del file existente; si no, llamar
  * a files.save para clasificarlo, escribirlo y generar el thumbnail; insertar
- * la fila; flush para tener el id (el trigger file_fts_insert ya creo la fila
- * del indice con content vacio); rellenar ese content con files.extract_text
- * (texto plano o texto del PDF); commit; devolver.
+ * la fila con el kind elegido por el usuario (por defecto "otros"); flush para
+ * tener el id (el trigger file_fts_insert ya creo la fila del indice con
+ * content vacio); rellenar ese content con files.extract_text (texto plano o
+ * texto del PDF); commit; devolver.
  *
  * El 409 lleva el id del archivo que ya existe para que el frontend pueda
  * reutilizarlo (por ejemplo, enlazarlo a un tema) sin resubir nada.
@@ -409,9 +411,9 @@ export const getFileFilesFileIdGet = <ThrowOnError extends boolean = false>(opti
 /**
  * Update File
  *
- * Renombra un archivo.
+ * Renombra un archivo y/o cambia su tipo de documento.
  *
- * Pasos: buscar la fila (404 si no existe); cambiar solo la columna name.
+ * Pasos: buscar la fila (404 si no existe); cambiar name y, si llega, kind.
  * El path en disco no se toca.
  */
 export const updateFileFilesFileIdPut = <ThrowOnError extends boolean = false>(options: Options<UpdateFileFilesFileIdPutData, ThrowOnError>): RequestResult<UpdateFileFilesFileIdPutResponses, UpdateFileFilesFileIdPutErrors, ThrowOnError> => (options.client ?? client).put<UpdateFileFilesFileIdPutResponses, UpdateFileFilesFileIdPutErrors, ThrowOnError>({

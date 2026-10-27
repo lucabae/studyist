@@ -26,6 +26,7 @@ import { PageHeader } from "../../layout/PageHeader";
 import { apiErrorMessage } from "../../lib/api";
 import { formatDateTime, formatRelative } from "../../lib/format";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { GenerateSetModal } from "./GenerateSetModal";
 import { DIFFICULTY_LABELS, ReviewSession } from "./ReviewSession";
 
 const DEFAULT_LIMIT = 20;
@@ -74,6 +75,8 @@ export default function FlashcardSetPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<FlashcardRead | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const [generateOpen, setGenerateOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (setId === null) return;
@@ -307,6 +310,9 @@ export default function FlashcardSetPage() {
                 <Button variant="secondary" onClick={() => setAddOpen(true)}>
                   Añadir tarjeta
                 </Button>
+                <Button variant="secondary" onClick={() => setGenerateOpen(true)}>
+                  Completar con IA
+                </Button>
                 <Button
                   onClick={() => void startTraining(mode)}
                   disabled={starting || cardTotal === 0}
@@ -397,11 +403,16 @@ export default function FlashcardSetPage() {
               <EmptyState
                 className="mt-3"
                 title="Este set está vacío"
-                description="Añade tarjetas a mano o genera un set nuevo desde tus documentos."
+                description="Añade tarjetas a mano o genera las primeras desde tus documentos."
                 action={
-                  <Button variant="secondary" onClick={() => setAddOpen(true)}>
-                    Añadir tarjeta
-                  </Button>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button variant="secondary" onClick={() => setAddOpen(true)}>
+                      Añadir tarjeta
+                    </Button>
+                    <Button variant="secondary" onClick={() => setGenerateOpen(true)}>
+                      Generar con IA
+                    </Button>
+                  </div>
                 }
               />
             )}
@@ -560,6 +571,16 @@ export default function FlashcardSetPage() {
             busy={deleting}
             onCancel={() => setDeleteTarget(null)}
             onConfirm={() => void confirmDelete()}
+          />
+
+          <GenerateSetModal
+            open={generateOpen}
+            setId={flashcardSet.id}
+            onClose={() => setGenerateOpen(false)}
+            onCreated={() => {
+              setGenerateOpen(false);
+              void load();
+            }}
           />
         </>
       )}

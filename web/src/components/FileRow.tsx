@@ -7,6 +7,8 @@ export interface FileRowFile {
   name: string;
   /** Extension del backend: pdf, png, txt... */
   type: string;
+  /** Etiqueta del tipo de documento (Teoría, Examen...). */
+  kindLabel?: string;
   size: number;
   /** URL ya resuelta del thumbnail; null si no tiene. */
   thumbnail?: string | null;
@@ -85,7 +87,9 @@ export function FileRow({ file, onOpen, onRename, onDelete, className }: FileRow
           {file.name}
         </span>
         <span className="mt-0.5 block truncate text-[12px] text-onyx-inkFaint">
-          {formatBytes(file.size)} · {file.type.toUpperCase()}
+          {[formatBytes(file.size), file.type.toUpperCase(), file.kindLabel]
+            .filter(Boolean)
+            .join(" · ")}
         </span>
       </span>
     </>

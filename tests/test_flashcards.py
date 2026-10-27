@@ -252,3 +252,58 @@ def test_from_files_keeps_a_batch_of_long_cards(client, make_file, fake_openrout
     body = response.json()
     assert len(body["created"]) == 16
     assert body["discarded"] == 0
+
+
+def test_study_avoids_cards_the_set_already_has(
+    client, make_file, fake_openrouter
+):
+    """Al completar un set, el modelo recibe las tarjetas existentes y lo que
+    las repite se descarta como duplicado."""
+    import json
+
+    set_id = _create_set(client, "Completado")
+    _create_card(client, set_id, "¿Qué es la fotosíntesis?", "Convertir luz en energía.")
+    file_row = make_file(name="tema.txt", content=b"apuntes de biologia")
+
+    fake_openrouter.send_reply = json.dumps(
+        [
+            # Misma pregunta que ya existe: solo cambian mayusculas y puntuacion.
+            {"front": "que es la fotosintesis", "back": "Otra respuesta."},
+            {"front": "¿Dónde ocurre?", "back": "En los cloroplastos."},
+        ],
+        ensure_ascii=False,
+    )
+
+    response = client.post(
+        "/study/flashcards",
+        json={
+            "flashcard_set_id": set_id,
+            "file_ids": [file_row.id],
+            "amount": 2,
+        },
+    )
+    assert response.status_code == 200, response.text
+
+    body = response.json()
+    assert len(body["created"]) == 1
+    assert body["duplicates"] == 1
+    assert body["discarded"] == 0
+
+    message = fake_openrouter.calls[-1]["message"]
+    assert "¿Qué es la fotosíntesis?" in message
+    assert "NO las repitas" in message
+
+    stored = client.get(f"/flashcard_set/{set_id}").json()
+    assert len(stored["flashcard_ids"]) == 2
+
+
+def test_study_rejects_an_unknown_set(client, make_file, fake_openrouter):
+    """Completar un set que no existe devuelve 404 y no llama al modelo."""
+    file_row = make_file(name="tema.txt", content=b"apuntes")
+
+    response = client.post(
+        "/study/flashcards",
+        json={"flashcard_set_id": 999, "file_ids": [file_row.id], "amount": 3},
+    )
+    assert response.status_code == 404
+    assert fake_openrouter.calls == []

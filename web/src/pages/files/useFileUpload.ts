@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createFileFilesPost } from "../../api/generated";
 import { useToast } from "../../components";
 import { apiErrorMessage } from "../../lib/api";
-import { duplicateFileId } from "./fileUtils";
+import { duplicateFileId, type FileDocKind } from "./fileUtils";
 
 export interface UploadItem {
   /** Clave local, no es el id del archivo (que aun no existe). */
@@ -25,6 +25,7 @@ export interface UploadItem {
 interface QueuedFile {
   key: string;
   file: File;
+  kind: FileDocKind;
 }
 
 /**
@@ -66,7 +67,7 @@ export function useFileUpload(onBatchDone: () => void) {
         if (!entry) break;
 
         const { error: uploadError, response } = await createFileFilesPost({
-          body: { upload: entry.file },
+          body: { upload: entry.file, kind: entry.kind },
         });
 
         if (!uploadError) {
@@ -102,12 +103,12 @@ export function useFileUpload(onBatchDone: () => void) {
   }, [patch, toast]);
 
   const enqueue = useCallback(
-    (files: File[]) => {
+    (files: File[], kind: FileDocKind = "otros") => {
       if (files.length === 0) return;
 
       const entries = files.map((file) => {
         counter.current += 1;
-        return { key: `subida-${counter.current}`, file };
+        return { key: `subida-${counter.current}`, file, kind };
       });
 
       setItems((current) => [

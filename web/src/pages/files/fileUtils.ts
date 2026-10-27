@@ -10,6 +10,23 @@ import { API_BASE_URL } from "../../lib/api";
 /** Familia de archivo: decide el preview y el filtro. */
 export type FileKind = "image" | "pdf" | "text" | "other";
 
+/** Tipo de documento (columna file.kind), independiente del MIME. */
+export type FileDocKind = "teoria" | "examen" | "ejercicio" | "otros";
+
+export const FILE_DOC_KIND_LABELS: Record<FileDocKind, string> = {
+  teoria: "Teoría",
+  examen: "Examen",
+  ejercicio: "Ejercicio",
+  otros: "Otros",
+};
+
+export const FILE_DOC_KIND_OPTIONS: { value: FileDocKind; label: string }[] = [
+  { value: "teoria", label: FILE_DOC_KIND_LABELS.teoria },
+  { value: "examen", label: FILE_DOC_KIND_LABELS.examen },
+  { value: "ejercicio", label: FILE_DOC_KIND_LABELS.ejercicio },
+  { value: "otros", label: FILE_DOC_KIND_LABELS.otros },
+];
+
 /** Clasifica un MIME en la familia que le toca. */
 export function fileKind(type: string): FileKind {
   const mime = type.toLowerCase();

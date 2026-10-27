@@ -92,6 +92,10 @@ export type BodyCreateFileFilesPost = {
      * Upload
      */
     upload: Blob | File;
+    /**
+     * Kind
+     */
+    kind?: 'teoria' | 'examen' | 'ejercicio' | 'otros';
 };
 
 /**
@@ -369,6 +373,10 @@ export type FileRead = {
      */
     type: string;
     /**
+     * Kind
+     */
+    kind: 'teoria' | 'examen' | 'ejercicio' | 'otros';
+    /**
      * Path
      */
     path: string;
@@ -391,13 +399,17 @@ export type FileRead = {
 /**
  * FileUpdate
  *
- * Payload de modificacion. Solo se puede renombrar.
+ * Payload de modificacion: renombrar y/o cambiar el tipo de documento.
  */
 export type FileUpdate = {
     /**
      * Name
      */
     name: string;
+    /**
+     * Kind
+     */
+    kind?: 'teoria' | 'examen' | 'ejercicio' | 'otros' | null;
 };
 
 /**
@@ -548,6 +560,10 @@ export type FlashcardSetFromFilesResponse = {
      * Discarded
      */
     discarded: number;
+    /**
+     * Duplicates
+     */
+    duplicates?: number;
 };
 
 /**
@@ -652,7 +668,7 @@ export type GenerateFlashcardsRequest = {
 /**
  * GenerateFlashcardsResponse
  *
- * Respuesta con las tarjetas creadas y cuantas se descartaron.
+ * Respuesta con las tarjetas creadas, descartadas y duplicadas.
  */
 export type GenerateFlashcardsResponse = {
     /**
@@ -663,6 +679,10 @@ export type GenerateFlashcardsResponse = {
      * Discarded
      */
     discarded: number;
+    /**
+     * Duplicates
+     */
+    duplicates?: number;
 };
 
 /**
@@ -1466,6 +1486,10 @@ export type ListFilesFilesGetData = {
          * Type
          */
         type?: string | null;
+        /**
+         * Kind
+         */
+        kind?: 'teoria' | 'examen' | 'ejercicio' | 'otros' | null;
         /**
          * Tema Id
          */

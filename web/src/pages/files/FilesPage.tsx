@@ -26,10 +26,13 @@ import { DeleteFileModal } from "./DeleteFileModal";
 import { RenameFileModal } from "./RenameFileModal";
 import { UploadQueue } from "./UploadQueue";
 import {
+  FILE_DOC_KIND_LABELS,
+  FILE_DOC_KIND_OPTIONS,
   fileCountLabel,
   fileKind,
   shortFileType,
   thumbnailUrl,
+  type FileDocKind,
   type FileKind,
 } from "./fileUtils";
 import { useFileUpload } from "./useFileUpload";
@@ -75,6 +78,8 @@ export default function FilesPage() {
   const [renaming, setRenaming] = useState<FileRead | null>(null);
   const [deleting, setDeleting] = useState<FileRead | null>(null);
   const [addingToTema, setAddingToTema] = useState(false);
+  // Tipo que se aplica a los archivos que se suban a continuacion.
+  const [uploadKind, setUploadKind] = useState<FileDocKind>("otros");
 
   const dropZoneRef = useRef<HTMLDivElement>(null);
 
@@ -200,9 +205,27 @@ export default function FilesPage() {
       </div>
 
       <div ref={dropZoneRef} className="mt-4">
+        <div
+          role="group"
+          aria-label="Tipo de los archivos que vas a subir"
+          className="mb-2 flex flex-wrap items-center gap-2"
+        >
+          <span className="text-[13px] font-medium text-onyx-inkMuted">
+            Tipo del documento
+          </span>
+          {FILE_DOC_KIND_OPTIONS.map((option) => (
+            <Chip
+              key={option.value}
+              active={uploadKind === option.value}
+              onClick={() => setUploadKind(option.value)}
+            >
+              {option.label}
+            </Chip>
+          ))}
+        </div>
         <FileDropZone
-          onFiles={upload.enqueue}
-          hint="Hasta 30 MB por archivo · también puedes pegarlos"
+          onFiles={(incoming) => upload.enqueue(incoming, uploadKind)}
+          hint={`Se guardarán como ${FILE_DOC_KIND_LABELS[uploadKind].toLowerCase()} · hasta 30 MB por archivo · también puedes pegarlos`}
         />
       </div>
 
@@ -291,6 +314,7 @@ export default function FilesPage() {
                     id: file.id,
                     name: file.name,
                     type: shortFileType(file.type),
+                    kindLabel: FILE_DOC_KIND_LABELS[file.kind],
                     size: file.size,
                     thumbnail: thumbnailUrl(file.thumbnail),
                   }}

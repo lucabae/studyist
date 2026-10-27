@@ -186,6 +186,9 @@ class TemaRead(TemaBase):
 
 # --- File -----------------------------------------------------------------
 
+# Tipo de documento. No confundir con `type`, que es el MIME.
+FileKind = Literal["teoria", "examen", "ejercicio", "otros"]
+
 
 class FileRead(BaseModel):
     """Respuesta con la fila completa. path es relativo a /files."""
@@ -195,6 +198,7 @@ class FileRead(BaseModel):
     id: int
     name: str
     type: str
+    kind: FileKind
     path: str
     size: int
     thumbnail: str | None
@@ -202,9 +206,10 @@ class FileRead(BaseModel):
 
 
 class FileUpdate(BaseModel):
-    """Payload de modificacion. Solo se puede renombrar."""
+    """Payload de modificacion: renombrar y/o cambiar el tipo de documento."""
 
     name: Name
+    kind: FileKind | None = None
 
 
 # --- Chat -----------------------------------------------------------------
@@ -396,7 +401,8 @@ class GeneratedFlashcard(BaseModel):
 
 
 class GenerateFlashcardsResponse(BaseModel):
-    """Respuesta con las tarjetas creadas y cuantas se descartaron."""
+    """Respuesta con las tarjetas creadas, descartadas y duplicadas."""
 
     created: list[FlashcardRead]
     discarded: int
+    duplicates: int = 0

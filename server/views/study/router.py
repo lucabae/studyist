@@ -7,6 +7,7 @@ no debe bloquear el event loop.
 
 import json
 import logging
+import unicodedata
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -54,7 +55,7 @@ async def generate_flashcards(
         )
 
     file_rows = load_files(payload.file_ids, db)
-    created, discarded = await generate_into_set(
+    created, discarded, duplicates = await generate_into_set(
         db,
         flashcard_set,
         file_rows,
@@ -64,7 +65,11 @@ async def generate_flashcards(
         payload.file_mode,
     )
 
-    response = GenerateFlashcardsResponse(created=created, discarded=discarded)  # type: ignore[arg-type]
+    response = GenerateFlashcardsResponse(
+        created=created,  # type: ignore[arg-type]
+        discarded=discarded,
+        duplicates=duplicates,
+    )
     db.commit()
     return response
 
@@ -105,18 +110,20 @@ async def generate_into_set(
     model_override: str | None,
     instructions: str | None = None,
     file_mode: FileMode = "text",
-) -> tuple[list[Flashcard], int]:
+) -> tuple[list[Flashcard], int, int]:
     """Genera tarjetas con el modelo y las guarda en el set indicado.
 
     Pasos: resolver amount a un numero; sacar los paths relativos de files;
-    construir el mensaje de usuario con el numero pedido (y, si llega, las
-    instructions del usuario al final); llamar a
-    openrouter.send con system_prompt "flashcards", model_type "pdf", esos
-    paths y file_mode; parsear con _parse_flashcards; si el parseo falla, reintentar una
-    vez anadiendo al mensaje "devuelve solo el JSON"; descartar las tarjetas con
-    front o back vacios o de mas de 500 caracteres; insertar todas las validas
-    con flashcard_set_id (no se trunca aunque el modelo devuelva de mas);
-    flush; devolver (creadas, descartadas). El commit lo hace el llamante.
+    construir el mensaje de usuario con el numero pedido, el bloque de tarjetas
+    que ya tiene el set (para no repetirlas) y, si llega, las instructions del
+    usuario al final; llamar a openrouter.send con system_prompt "flashcards",
+    model_type "pdf", esos paths y file_mode; parsear con _parse_flashcards; si
+    el parseo falla, reintentar una vez anadiendo al mensaje "devuelve solo el
+    JSON"; descartar las tarjetas con front o back vacios o de mas de 500
+    caracteres; descartar tambien las que repiten el front de una tarjeta que
+    ya estaba (normalizado); insertar todas las validas con flashcard_set_id
+    (no se trunca aunque el modelo devuelva de mas); flush; devolver
+    (creadas, descartadas, duplicadas). El commit lo hace el llamante.
 
     Ojo: la sesion de SQLAlchemy es sincrona. Las consultas son SQLite local
     (microsegundos), asi que se hacen inline; la unica espera larga es la
@@ -124,7 +131,10 @@ async def generate_into_set(
     """
     wanted = resolve_amount(amount)
     paths = [row.path for row in files]
-    message = f"Genera {wanted} flashcards a partir de los documentos."
+    existing = list(flashcard_set.flashcards)
+    message = f"Genera {wanted} flashcards nuevas a partir de los documentos."
+    if existing:
+        message = f"{message} {_existing_cards_block(existing)}"
     if instructions and instructions.strip():
         # Comentario libre del usuario: se respeta tal cual, sin sanear.
         message = f"{message} Instrucciones del usuario: {instructions.strip()}"
@@ -157,11 +167,21 @@ async def generate_into_set(
         and len(card["back"]) <= MAX_CARD_CHARS
     ]
 
+    # Dedupe por front normalizado, contra lo que ya habia y dentro del propio
+    # lote (el modelo a veces repite la misma pregunta dos veces).
+    seen_fronts = {_normalize_front(card.front) for card in existing}
     created: list[Flashcard] = []
+    duplicates = 0
     for card in valid:
+        front = card["front"].strip()
+        key = _normalize_front(front)
+        if key in seen_fronts:
+            duplicates += 1
+            continue
+        seen_fronts.add(key)
         flashcard = Flashcard(
             flashcard_set_id=flashcard_set.id,
-            front=card["front"].strip(),
+            front=front,
             back=card["back"].strip(),
             last_seen=None,
             difficulty="medium",
@@ -173,7 +193,48 @@ async def generate_into_set(
     # transaccion sigue abierta hasta que el llamante la cierra.
     db.flush()
 
-    return created, len(parsed) - len(valid)
+    return created, len(parsed) - len(valid), duplicates
+
+
+# Cuantas tarjetas existentes y cuantos caracteres se le mandan al modelo. Un
+# set grande no debe inflar el prompt sin limite.
+MAX_EXISTING_CARDS = 100
+MAX_EXISTING_CHARS = 12000
+
+
+def _normalize_front(text: str) -> str:
+    """Clave de comparacion de un front: minusculas, sin acentos, espacios
+    simples y sin signos de puntuacion al principio ni al final."""
+    plain = unicodedata.normalize("NFKD", text.lower())
+    plain = "".join(char for char in plain if not unicodedata.combining(char))
+    plain = " ".join(plain.split())
+    return plain.strip("¿?¡!.,;: \"'()[]")
+
+
+def _existing_cards_block(existing: list[Flashcard]) -> str:
+    """Bloque del mensaje con las tarjetas que ya tiene el set.
+
+    Pasos: recorrer las tarjetas en orden, cortando en MAX_EXISTING_CARDS o
+    MAX_EXISTING_CHARS; montar una linea por tarjeta con front y back; anadir
+    cuantas se han quedado fuera. El modelo debe generar solo contenido nuevo.
+    """
+    lines: list[str] = []
+    used = 0
+    for flashcard in existing[:MAX_EXISTING_CARDS]:
+        line = f"- {flashcard.front.strip()} => {flashcard.back.strip()}"
+        if used + len(line) > MAX_EXISTING_CHARS:
+            break
+        lines.append(line)
+        used += len(line)
+
+    pending = len(existing) - len(lines)
+    header = (
+        "El set YA tiene estas tarjetas. NO las repitas ni escribas otra "
+        "version de la misma pregunta: genera solo contenido nuevo que no "
+        "este cubierto."
+    )
+    footer = f" (y {pending} mas)" if pending > 0 else ""
+    return f"{header}\n{chr(10).join(lines)}{footer}"
 
 
 async def _ask_model(

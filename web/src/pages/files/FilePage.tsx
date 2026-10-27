@@ -21,7 +21,7 @@ import { formatBytes } from "../../lib/format";
 import { FileChat } from "./FileChat";
 import { FilePreview } from "./FilePreview";
 import { RenameFileModal } from "./RenameFileModal";
-import { fileKind, fileTypeLabel, fileUrl } from "./fileUtils";
+import { FILE_DOC_KIND_LABELS, fileKind, fileTypeLabel, fileUrl } from "./fileUtils";
 
 export default function FilePage() {
   const { id } = useParams();
@@ -137,7 +137,7 @@ export default function FilePage() {
 
       <PageHeader
         title={file.name}
-        description={`${fileTypeLabel(file.type)} · ${formatBytes(file.size)}`}
+        description={`${fileTypeLabel(file.type)} · ${formatBytes(file.size)} · ${FILE_DOC_KIND_LABELS[file.kind]}`}
         actions={
           <>
             <Button
@@ -145,7 +145,7 @@ export default function FilePage() {
               size="sm"
               onClick={() => setRenaming(true)}
             >
-              Renombrar
+              Editar
             </Button>
             <Button
               href={fileUrl(file.path)}
@@ -174,7 +174,7 @@ export default function FilePage() {
         onRenamed={(updated) => {
           setFile(updated);
           setRenaming(false);
-          toast("Nombre actualizado.", "success");
+          toast("Archivo actualizado.", "success");
         }}
       />
     </div>

@@ -90,3 +90,42 @@ def test_rename_updates_index_and_delete_cleans_rows(client, db_session, files_r
         {"id": uploaded["id"]},
     ).scalar_one()
     assert remaining_fts == 0
+
+
+def test_upload_accepts_a_document_kind(client):
+    """La subida guarda el tipo elegido; sin campo queda en "otros"."""
+    teoria = client.post(
+        "/files",
+        files={"upload": ("tema_1.txt", b"teoria de grafos", "text/plain")},
+        data={"kind": "teoria"},
+    )
+    assert teoria.status_code == 201
+    assert teoria.json()["kind"] == "teoria"
+
+    sin_tipo = _upload(client, "apuntes.txt", b"apuntes sueltos")
+    assert sin_tipo.status_code == 201
+    assert sin_tipo.json()["kind"] == "otros"
+
+    invalid = client.post(
+        "/files",
+        files={"upload": ("raro.txt", b"otra cosa", "text/plain")},
+        data={"kind": "inventado"},
+    )
+    assert invalid.status_code == 422
+
+
+def test_update_and_filter_by_document_kind(client):
+    """PUT cambia solo el tipo y GET /files?kind= filtra por el."""
+    uploaded = _upload(client, "parcial.txt", b"enunciado del examen").json()
+    assert uploaded["kind"] == "otros"
+
+    updated = client.put(
+        f"/files/{uploaded['id']}",
+        json={"name": "parcial.txt", "kind": "examen"},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["kind"] == "examen"
+
+    examenes = client.get("/files", params={"kind": "examen"}).json()
+    assert [item["id"] for item in examenes] == [uploaded["id"]]
+    assert client.get("/files", params={"kind": "teoria"}).json() == []

@@ -58,6 +58,7 @@ class FlashcardSetFromFilesResponse(BaseModel):
     set: FlashcardSetRead
     created: list[FlashcardRead]
     discarded: int
+    duplicates: int = 0
 
 
 @router.post("", response_model=FlashcardSetRead, status_code=201)
@@ -105,7 +106,7 @@ async def create_flashcard_set_from_files(
     db.add(flashcard_set)
     db.flush()
 
-    created, discarded = await generate_into_set(
+    created, discarded, duplicates = await generate_into_set(
         db,
         flashcard_set,
         file_rows,
@@ -118,6 +119,7 @@ async def create_flashcard_set_from_files(
         set=flashcard_set,  # type: ignore[arg-type]
         created=created,  # type: ignore[arg-type]
         discarded=discarded,
+        duplicates=duplicates,
     )
     db.commit()
     return response

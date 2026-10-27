@@ -67,6 +67,7 @@ SCHEMA: list[str] = [
         id        INTEGER PRIMARY KEY AUTOINCREMENT,
         name      TEXT    NOT NULL,
         type      TEXT    NOT NULL,
+        kind      TEXT    NOT NULL DEFAULT 'otros',
         path      TEXT    NOT NULL UNIQUE,
         size      INTEGER NOT NULL,
         thumbnail TEXT,

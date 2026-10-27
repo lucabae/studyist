@@ -72,7 +72,7 @@ Páginas:
 - Asignatura: Muestra todos los temas de una asignatura !TODO (aquí es lo del timeline)
 - Tema: Te permite modificar todos los archivos que tienen que ver con un tema
 - Eventos: Vista de calendario típica con todos los eventos. Se puede hacer click a la asignatura y te lleva a ella, modificar, darle click y te lleva al evento del calendario en iCloud.
-- Flashcard Sets: Aquí es donde se podrá entrenar, le das a play y te muestra los flashcards, un click y te muestra la parte de atrás donde podrás determinar si la pregunta era fácil, media o dificil para luego determinar cuando mostrartelas otra vez. Habrá un botón para pasar por todas las flashcards de ese set, o solo las que toque revisar.
+- Flashcard Sets: Aquí es donde se podrá entrenar, le das a play y te muestra los flashcards, un click y te muestra la parte de atrás donde podrás determinar si la pregunta era fácil, media o dificil para luego determinar cuando mostrartelas otra vez. Habrá un botón para pasar por todas las flashcards de ese set, o solo las que toque revisar. Dentro del repaso se puede editar (front/back) o borrar la tarjeta actual y pasar a la siguiente sin salir de la sesión.
 - All Flashcard Sets:
 Esta es global, contiene todos los flashcard set para que puedas gestionarlos, borrarlos, etc. Al igual que una parte donde podrás pedirle que te haga un test global, donde te muestra todos los flashcards de los sets que tocan hoy.
 - Flashcard: Página para gestionar un flashcard en especifico (delante y detrás), al igual que añadirle fotos (aquí se debe de poder arrastrar, darle click para abrir, y recibirlos de copia y pega).
@@ -121,10 +121,11 @@ Cada categoría de view aquí se lleva su propia carpeta, y su propio endpoint p
     - `GET /tema?asignatura_id=`: temas de una asignatura (lista plana, orden natural por nombre, con `parent_id` y `child_ids`; el árbol se monta en el cliente).
     - Jerarquía: `parent_id` opcional en crear y modificar. 404 si el padre no existe, 400 si es de otra asignatura, si es el propio tema o si es un descendiente (ciclo). `parent_id: null` devuelve el tema al primer nivel.
 - Files
-    - Crear: Clasifica el archivo con su MIME Type y lo guarda en el Path que toque, llama a la función de crear thumb, y finalmente con toda esa información crea la fila de la BBDD
-    - Modificar (nombre)
+    - Crear: Clasifica el archivo con su MIME Type y lo guarda en el Path que toque, llama a la función de crear thumb, y finalmente con toda esa información crea la fila de la BBDD. Acepta `kind` (`teoria` / `examen` / `ejercicio` / `otros`, por defecto `otros`), el tipo de documento que elige el usuario.
+    - Modificar (nombre y tipo de documento)
     - Borrar (borra (con try) el archivo, y también la linea de la DB, y todas sus referencias).
     - Get (todo) con path relativo
+    - `GET /files?kind=`: filtra por tipo de documento.
 - Flashcard Set
     - Crear (todo)
     - Modificar (todo)
@@ -134,7 +135,8 @@ Cada categoría de view aquí se lleva su propia carpeta, y su propio endpoint p
     - Create flashcard set from document(s): Usa Openrouter para pasarle los archivos puestos en la petición, para que cree un flashcard set, usando el prompt de flashcards.txt. En la petición se mencionara explicitamente cuantas flashcards quiere que se genere el usuario, o también se podrá decir "pocas"/"medio"/"muchas", para que el agente interprete como quiera.
     Si se define de manera explicita y el modelo hace de más, las dejamos dentro aún así, no truncamos.
     - `GET /files?q=&type=&tema_id=&limit=`: búsqueda FTS5 + filtros.
-    - `POST /flashcard_set/from-files`: genera el set a partir de documentos (antes vivía en `/study`). Acepta `amount: int | "pocas" | "medio" | "muchas"`.
+    - `POST /flashcard_set/from-files`: genera el set a partir de documentos (antes vivía en `/study`). Acepta `amount: int | "pocas" | "medio" | "muchas"`. Respuesta con `created`, `discarded` y `duplicates`.
+    - Completar un set existente: se usa `POST /study/flashcards` con `flashcard_set_id`. El modelo recibe las tarjetas que ya tiene el set (front y back) y se le pide no repetirlas; además se descartan las que repiten el front de una existente (normalizado sin acentos ni puntuación) y las repetidas dentro del propio lote, contadas en `duplicates`.
     - `GET /flashcard_set/{id}/review?all=false`: tarjetas que tocan hoy (o todas con `all=true`), con `limit` opcional.
 
 - Flashcard
@@ -148,7 +150,7 @@ Cada categoría de view aquí se lleva su propia carpeta, y su propio endpoint p
 - Openrouter
     - Send(message:str, model_type:str, system_prompt:str, files:list=None, model_override=None): Envía mensaje, pudiendo elegir el tipo de modelo:enum[str] = ["pdf", "general"] (luego se añadirán más modelos), o sobreescribir totalmente el nombre de modelo como tal (model_override). Elige también el system prompt, que hace referencia al nombre del archivo de prompt pero sin el .txt al final, entonces tiene que referenciar a un archivo real. Files referencia a una lista de paths de files que mandar opcionalmente al modelo.
 - Study
-    - Generate flashcards: Necesita que el usuario le apunte a un flashcard set y a uno o más files. Usa Send del view de Openrouter. Puedes elegir núm de flashcards. Tiene JSON parsing por si la IA se lía (poco probable). En español. 
+    - Generate flashcards: Necesita que el usuario le apunte a un flashcard set y a uno o más files. Usa Send del view de Openrouter. Puedes elegir núm de flashcards. Tiene JSON parsing por si la IA se lía (poco probable). En español. Sirve también para completar un set existente: mete las tarjetas que ya tiene en el mensaje y devuelve `duplicates`. 
 - Chat
     - Get thread: `GET /chat/thread` devuelve el hilo global (Principal). Con `?file_id=` devuelve el hilo de ese archivo (página Archivo). Si no existe, se crea vacío.
     - Get messages: `GET /chat/messages` lista los mensajes del hilo (global o `?file_id=`), ordenados por fecha.
@@ -220,6 +222,7 @@ Hilo de conversación interno con la IA. Uno global (página Principal, `File` N
 **Files**
 - **Nombre**:str
 - **Tipo**:str *(pdf/txt/etc.)*
+- **Tipo documento**:str *(enum: teoria/examen/ejercicio/otros. Es la clasificación elegida por el usuario al subir; se puede cambiar después. Por defecto otros)*
 - **Path**:str (incluye /images o /pdfs o /texts o /others en su ruta)
 - **Size**:num
 - **Thumbnail**:str *(Path a /thumb, puede ser NULL)*

@@ -5,12 +5,12 @@ Subida en multipart/form-data con el campo "upload". Tope de 30 MB.
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from db.db import File, get_session, tema_file
-from server.models import FileRead, FileUpdate
+from server.models import FileKind, FileRead, FileUpdate
 from server.scripts import files
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,11 @@ MIME_PREFIXES = ("image", "text", "application")
 
 
 @router.post("", response_model=FileRead, status_code=201)
-def create_file(upload: UploadFile, db: Session = Depends(get_session)) -> FileRead:
+def create_file(
+    upload: UploadFile,
+    kind: FileKind = Form("otros"),
+    db: Session = Depends(get_session),
+) -> FileRead:
     """Sube un archivo.
 
     Pasos: leer el contenido del UploadFile; si supera
@@ -30,9 +34,10 @@ def create_file(upload: UploadFile, db: Session = Depends(get_session)) -> FileR
     hash con files.compute_hash y consultar si ya existe una fila con ese hash;
     si existe, devolver 409 incluyendo el id del file existente; si no, llamar
     a files.save para clasificarlo, escribirlo y generar el thumbnail; insertar
-    la fila; flush para tener el id (el trigger file_fts_insert ya creo la fila
-    del indice con content vacio); rellenar ese content con files.extract_text
-    (texto plano o texto del PDF); commit; devolver.
+    la fila con el kind elegido por el usuario (por defecto "otros"); flush para
+    tener el id (el trigger file_fts_insert ya creo la fila del indice con
+    content vacio); rellenar ese content con files.extract_text (texto plano o
+    texto del PDF); commit; devolver.
 
     El 409 lleva el id del archivo que ya existe para que el frontend pueda
     reutilizarlo (por ejemplo, enlazarlo a un tema) sin resubir nada.
@@ -63,7 +68,7 @@ def create_file(upload: UploadFile, db: Session = Depends(get_session)) -> FileR
         raise HTTPException(status_code=400, detail="El archivo no tiene nombre")
 
     metadata = files.save(upload.filename, content)
-    row = File(**metadata)
+    row = File(**metadata, kind=kind)
     db.add(row)
     db.flush()
 
@@ -80,6 +85,7 @@ def create_file(upload: UploadFile, db: Session = Depends(get_session)) -> FileR
 def list_files(
     q: str | None = None,
     type: str | None = None,
+    kind: FileKind | None = None,
     tema_id: int | None = None,
     limit: int = Query(
         default=100,
@@ -94,9 +100,10 @@ def list_files(
     Pasos: si llega q, sanearlo con _fts_query y pedir a file_fts los rowid que
     casan con MATCH, ordenados por rank; si no hay ninguno, devolver lista
     vacia; si llega type, filtrar por prefijo (image, text, application o un
-    valor terminado en "/") o por igualdad exacta; si llega tema_id, unir con
-    tema_file y filtrar por esa columna; ordenar por name (orden estable) y
-    limitar el resultado. Los filtros se combinan entre si.
+    valor terminado en "/") o por igualdad exacta; si llega kind, filtrar por
+    el tipo de documento (teoria, examen, ejercicio, otros); si llega tema_id,
+    unir con tema_file y filtrar por esa columna; ordenar por name (orden
+    estable) y limitar el resultado. Los filtros se combinan entre si.
 
     Sin q se consulta solo la tabla file: el indice no aporta nada.
     """
@@ -125,6 +132,9 @@ def list_files(
         else:
             stmt = stmt.where(File.type == type)
 
+    if kind is not None:
+        stmt = stmt.where(File.kind == kind)
+
     if tema_id is not None:
         stmt = stmt.join(tema_file, File.id == tema_file.c.file_id).where(
             tema_file.c.tema_id == tema_id
@@ -150,9 +160,9 @@ def get_file(file_id: int, db: Session = Depends(get_session)) -> FileRead:
 def update_file(
     file_id: int, payload: FileUpdate, db: Session = Depends(get_session)
 ) -> FileRead:
-    """Renombra un archivo.
+    """Renombra un archivo y/o cambia su tipo de documento.
 
-    Pasos: buscar la fila (404 si no existe); cambiar solo la columna name.
+    Pasos: buscar la fila (404 si no existe); cambiar name y, si llega, kind.
     El path en disco no se toca.
     """
     row = db.get(File, file_id)
@@ -160,6 +170,8 @@ def update_file(
         raise HTTPException(status_code=404, detail=f"No existe el file {file_id}")
 
     row.name = payload.name
+    if payload.kind is not None:
+        row.kind = payload.kind
     db.commit()
     return row
 

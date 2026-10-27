@@ -1,14 +1,22 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { markSeenFlashcardFlashcardIdSeenPost } from "../../api/generated/sdk.gen";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  deleteFlashcardFlashcardFlashcardIdDelete,
+  markSeenFlashcardFlashcardIdSeenPost,
+  updateFlashcardFlashcardFlashcardIdPut,
+} from "../../api/generated/sdk.gen";
 import type { FlashcardRead } from "../../api/generated/types.gen";
 import {
   FlashcardViewer,
   type FlashcardGrade,
 } from "../../components/FlashcardViewer";
 import { Button } from "../../components/ui/Button";
+import { Field } from "../../components/ui/Field";
+import { Modal } from "../../components/ui/Modal";
 import { Spinner } from "../../components/ui/Spinner";
+import { Textarea } from "../../components/ui/Textarea";
 import { useToast } from "../../components/ui/Toast";
 import { apiErrorMessage } from "../../lib/api";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 /** Etiquetas de dificultad, compartidas por listas, sesion y ficha. */
 export const DIFFICULTY_LABELS: Record<FlashcardGrade, string> = {
@@ -42,15 +50,26 @@ export interface ReviewSessionProps {
  */
 export function ReviewSession({ cards, heading, onExit }: ReviewSessionProps) {
   const { toast } = useToast();
+  const formId = useId();
+  // Copia local: borrar o editar una tarjeta no debe tocar el array de la
+  // pagina, que se recarga al salir.
+  const [sessionCards, setSessionCards] = useState(cards);
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [counts, setCounts] = useState<Counts>(EMPTY_COUNTS);
   const [finished, setFinished] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editFront, setEditFront] = useState("");
+  const [editBack, setEditBack] = useState("");
+  const [editing, setEditing] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  const total = cards.length;
-  const card = cards[index];
+  const total = sessionCards.length;
+  const card = sessionCards[index];
+  const busy = saving || deleting || editing;
 
   // Al pasar de tarjeta el boton votado desaparece: el foco vuelve a la zona
   // de la tarjeta para que el teclado siga funcionando (Espacio revela).
@@ -62,7 +81,7 @@ export function ReviewSession({ cards, heading, onExit }: ReviewSessionProps) {
 
   const grade = useCallback(
     async (value: FlashcardGrade) => {
-      if (!card || saving) return;
+      if (!card || saving || deleteOpen || editOpen) return;
 
       setSaving(true);
       try {
@@ -86,8 +105,67 @@ export function ReviewSession({ cards, heading, onExit }: ReviewSessionProps) {
         setSaving(false);
       }
     },
-    [card, index, saving, toast, total],
+    [card, deleteOpen, editOpen, index, saving, toast, total],
   );
+
+  /**
+   * Borra la tarjeta actual y deja en pantalla la siguiente. Si era la ultima,
+   * se pasa al resumen (o a "sin tarjetas" si el set se ha quedado vacio).
+   */
+  const confirmDelete = async () => {
+    if (!card || deleting) return;
+
+    setDeleting(true);
+    try {
+      await deleteFlashcardFlashcardFlashcardIdDelete({
+        path: { flashcard_id: card.id },
+        throwOnError: true,
+      });
+
+      const remaining = sessionCards.filter((item) => item.id !== card.id);
+      setSessionCards(remaining);
+      setDeleteOpen(false);
+      setRevealed(false);
+
+      if (remaining.length === 0) {
+        setFinished(true);
+      } else if (index >= remaining.length) {
+        setIndex(remaining.length - 1);
+      }
+      toast("Tarjeta borrada.", "success");
+    } catch (error) {
+      toast(apiErrorMessage(error), "error");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const submitEdit = async () => {
+    if (!card || editing) return;
+
+    const frontText = editFront.trim();
+    const backText = editBack.trim();
+    if (!frontText || !backText) return;
+
+    setEditing(true);
+    try {
+      const { data } = await updateFlashcardFlashcardFlashcardIdPut({
+        path: { flashcard_id: card.id },
+        body: { front: frontText, back: backText },
+        throwOnError: true,
+      });
+
+      setSessionCards((current) =>
+        current.map((item) => (item.id === data.id ? data : item)),
+      );
+      setEditOpen(false);
+      toast("Tarjeta actualizada.", "success");
+    } catch (error) {
+      toast(apiErrorMessage(error), "error");
+    } finally {
+      setEditing(false);
+    }
+  };
 
   if (finished) {
     const reviewed = GRADES.reduce((sum, value) => sum + counts[value], 0);
@@ -104,10 +182,13 @@ export function ReviewSession({ cards, heading, onExit }: ReviewSessionProps) {
           role="status"
           className="mt-2 text-[13px] leading-relaxed text-onyx-inkMuted"
         >
-          {reviewed === 1
-            ? "Has repasado 1 tarjeta."
-            : `Has repasado ${reviewed} tarjetas.`}{" "}
-          Las próximas fechas de repaso ya están actualizadas.
+          {sessionCards.length === 0
+            ? "No queda ninguna tarjeta en esta sesión."
+            : `${
+                reviewed === 1
+                  ? "Has repasado 1 tarjeta."
+                  : `Has repasado ${reviewed} tarjetas.`
+              } Las próximas fechas de repaso ya están actualizadas.`}
         </p>
 
         <dl className="mt-6 grid grid-cols-3 gap-2">
@@ -200,6 +281,111 @@ export function ReviewSession({ cards, heading, onExit }: ReviewSessionProps) {
           }}
         />
       </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-onyx-line pt-3">
+        <p className="text-[12px] text-onyx-inkFaint">
+          Puedes corregir la tarjeta sin salir del repaso.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={busy}
+            onClick={() => {
+              setEditFront(card.front);
+              setEditBack(card.back);
+              setEditOpen(true);
+            }}
+          >
+            Editar
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={busy}
+            onClick={() => setDeleteOpen(true)}
+          >
+            Borrar y pasar
+          </Button>
+        </div>
+      </div>
+
+      <Modal
+        open={editOpen}
+        onClose={() => {
+          if (!editing) setEditOpen(false);
+        }}
+        title="Editar tarjeta"
+        size="sm"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setEditOpen(false)}
+              disabled={editing}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              form={formId}
+              disabled={
+                editing ||
+                editFront.trim().length === 0 ||
+                editBack.trim().length === 0
+              }
+            >
+              {editing && <Spinner size="sm" label="Guardando" />}
+              {editing ? "Guardando…" : "Guardar"}
+            </Button>
+          </>
+        }
+      >
+        <form
+          id={formId}
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submitEdit();
+          }}
+          className="flex min-w-0 flex-col gap-4"
+        >
+          <Field label="Delante">
+            {({ id, invalid, ...aria }) => (
+              <Textarea
+                id={id}
+                rows={4}
+                value={editFront}
+                onChange={(event) => setEditFront(event.target.value)}
+                disabled={editing}
+                invalid={invalid}
+                {...aria}
+              />
+            )}
+          </Field>
+          <Field label="Detrás">
+            {({ id, invalid, ...aria }) => (
+              <Textarea
+                id={id}
+                rows={5}
+                value={editBack}
+                onChange={(event) => setEditBack(event.target.value)}
+                disabled={editing}
+                invalid={invalid}
+                {...aria}
+              />
+            )}
+          </Field>
+        </form>
+      </Modal>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        title="Borrar tarjeta"
+        description={`Se borrará «${card.front}» y se pasará a la siguiente. No se puede deshacer.`}
+        busy={deleting}
+        onCancel={() => setDeleteOpen(false)}
+        onConfirm={() => void confirmDelete()}
+      />
     </div>
   );
 }

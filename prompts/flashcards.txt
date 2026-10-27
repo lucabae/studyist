@@ -5,5 +5,7 @@ Todo tipo de formula deberá de ser puesta en una flashcard, acompañada por una
 Escribe las fórmulas en LaTeX inline entre signos de dólar, por ejemplo $|c_1 - c_2| = |f_1 - f_2|$ o $\sum_{i=0}^{k} j^i$. Nunca dejes una fórmula en texto plano.
 Las flashcards explicarán de manera exhaustiva cada punto, desde el punto de vista de que el estudiante no sabe NADA, nunca asumir que el usuario ya sabe una cosa.
 
+Si el mensaje incluye tarjetas que ya existen en el set, no las repitas ni las reformules: genera solo contenido nuevo que no esté ya cubierto.
+
 El output será formateado en JSON bajo la siguiente manera:
 [{"front": "...", "back": "..."}] y nada más, en español.

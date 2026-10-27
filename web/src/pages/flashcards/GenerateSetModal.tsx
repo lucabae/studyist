@@ -1,6 +1,8 @@
 import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import {
+  createFileFilesPost,
   createFlashcardSetFromFilesFlashcardSetFromFilesPost,
+  generateFlashcardsStudyFlashcardsPost,
   listFilesFilesGet,
 } from "../../api/generated/sdk.gen";
 import type { FileRead } from "../../api/generated/types.gen";
@@ -11,9 +13,11 @@ import { Input } from "../../components/ui/Input";
 import { Modal } from "../../components/ui/Modal";
 import { Spinner } from "../../components/ui/Spinner";
 import { useToast } from "../../components/ui/Toast";
+import { FileDropZone } from "../../components/FileDropZone";
 import { PdfModePicker, type PdfMode } from "../../components/PdfModePicker";
 import { apiErrorMessage } from "../../lib/api";
 import { formatBytes } from "../../lib/format";
+import { duplicateFileId } from "../files/fileUtils";
 
 /** Estimacion cualitativa o numero exacto (1..50), como espera el backend. */
 type AmountMode = "pocas" | "medio" | "muchas" | "exact";
@@ -37,18 +41,25 @@ function clampAmount(raw: string): number {
 export interface GenerateSetModalProps {
   open: boolean;
   onClose: () => void;
-  /** Se llama con el id del set recien generado. */
+  /**
+   * Si llega, el modal completa ese set con tarjetas nuevas en vez de crear
+   * uno. Las tarjetas que ya tiene se le pasan al modelo para no repetirlas.
+   */
+  setId?: number;
+  /** Se llama con el id del set creado o completado. */
   onCreated: (setId: number) => void;
 }
 
 /**
- * Generacion de un set a partir de documentos. La peticion puede tardar: el
- * modal queda bloqueado con un spinner hasta que responde.
+ * Generacion de un set a partir de documentos, o ampliacion de uno existente
+ * (prop setId). La peticion puede tardar: el modal queda bloqueado con un
+ * spinner hasta que responde.
  */
-export function GenerateSetModal({ open, onClose, onCreated }: GenerateSetModalProps) {
+export function GenerateSetModal({ open, onClose, setId, onCreated }: GenerateSetModalProps) {
   const { toast } = useToast();
   const formId = useId();
   const searchId = useId();
+  const isAppend = setId !== undefined;
 
   const [name, setName] = useState("");
   const [files, setFiles] = useState<FileRead[] | null>(null);
@@ -58,6 +69,7 @@ export function GenerateSetModal({ open, onClose, onCreated }: GenerateSetModalP
   const [mode, setMode] = useState<AmountMode>("medio");
   const [exact, setExact] = useState("15");
   const [pdfMode, setPdfMode] = useState<PdfMode>("text");
+  const [uploading, setUploading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -107,7 +119,55 @@ export function GenerateSetModal({ open, onClose, onCreated }: GenerateSetModalP
   const amount = mode === "exact" ? clampAmount(exact) : mode;
 
   const canSubmit =
-    !generating && name.trim().length > 0 && selected.length > 0;
+    !generating &&
+    !uploading &&
+    selected.length > 0 &&
+    (isAppend || name.trim().length > 0);
+
+  /**
+   * Sube los archivos a la biblioteca y los deja seleccionados. Si uno ya
+   * existia (409 con file_id) se selecciona el que ya habia.
+   */
+  const uploadFiles = async (incoming: File[]) => {
+    if (incoming.length === 0 || uploading || generating) return;
+
+    setUploading(true);
+    setFormError(null);
+    const uploadedIds: number[] = [];
+    const failures: string[] = [];
+
+    try {
+      for (const file of incoming) {
+        try {
+          const { data } = await createFileFilesPost({
+            body: { upload: file },
+            throwOnError: true,
+          });
+          uploadedIds.push(data.id);
+        } catch (error) {
+          const duplicate = duplicateFileId(error);
+          if (duplicate !== null) uploadedIds.push(duplicate);
+          else failures.push(`${file.name}: ${apiErrorMessage(error)}`);
+        }
+      }
+
+      try {
+        const { data } = await listFilesFilesGet({
+          query: { limit: 200 },
+          throwOnError: true,
+        });
+        setFiles(data ?? []);
+        setFilesError(null);
+      } catch (error) {
+        setFilesError(apiErrorMessage(error));
+      }
+
+      setSelected((current) => [...new Set([...current, ...uploadedIds])]);
+      if (failures.length > 0) setFormError(failures.join("\n"));
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -115,6 +175,28 @@ export function GenerateSetModal({ open, onClose, onCreated }: GenerateSetModalP
     setGenerating(true);
     setFormError(null);
     try {
+      if (isAppend) {
+        const { data } = await generateFlashcardsStudyFlashcardsPost({
+          body: {
+            flashcard_set_id: setId,
+            file_ids: selected,
+            amount,
+            file_mode: pdfMode,
+          },
+          throwOnError: true,
+        });
+
+        const created = data.created.length;
+        const notes = [
+          created === 1 ? "1 tarjeta añadida" : `${created} tarjetas añadidas`,
+        ];
+        if (data.discarded > 0) notes.push(`${data.discarded} descartadas`);
+        if ((data.duplicates ?? 0) > 0) notes.push(`${data.duplicates} ya existían`);
+        toast(`${notes.join(" · ")}.`, created > 0 ? "success" : "info");
+        onCreated(setId);
+        return;
+      }
+
       const { data } = await createFlashcardSetFromFilesFlashcardSetFromFilesPost({
         body: {
           name: name.trim(),
@@ -130,11 +212,12 @@ export function GenerateSetModal({ open, onClose, onCreated }: GenerateSetModalP
         created === 1
           ? "Set generado con 1 tarjeta."
           : `Set generado con ${created} tarjetas.`;
+      const skipped = data.discarded + (data.duplicates ?? 0);
       toast(
-        data.discarded > 0
-          ? `${base} ${data.discarded} descartada${data.discarded === 1 ? "" : "s"} por pasar de 2000 caracteres.`
+        skipped > 0
+          ? `${base} ${skipped} descartada${skipped === 1 ? "" : "s"}.`
           : base,
-        data.discarded > 0 ? "info" : "success",
+        skipped > 0 ? "info" : "success",
       );
       onCreated(data.set.id);
     } catch (error) {
@@ -153,42 +236,64 @@ export function GenerateSetModal({ open, onClose, onCreated }: GenerateSetModalP
     <Modal
       open={open}
       onClose={() => {
-        if (!generating) onClose();
+        if (!generating && !uploading) onClose();
       }}
-      title="Generar set desde documentos"
-      description="La IA lee los archivos elegidos y escribe las tarjetas."
+      title={isAppend ? "Completar set con IA" : "Generar set desde documentos"}
+      description={
+        isAppend
+          ? "La IA lee los documentos y añade tarjetas nuevas sin repetir las que ya tiene el set."
+          : "La IA lee los archivos elegidos y escribe las tarjetas."
+      }
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={generating}>
+          <Button
+            variant="secondary"
+            onClick={onClose}
+            disabled={generating || uploading}
+          >
             Cancelar
           </Button>
           <Button type="submit" form={formId} disabled={!canSubmit}>
             {generating && <Spinner size="sm" label="Generando" />}
-            {generating ? "Generando…" : "Generar set"}
+            {generating
+              ? "Generando…"
+              : isAppend
+                ? "Añadir tarjetas"
+                : "Generar set"}
           </Button>
         </>
       }
     >
       <form id={formId} onSubmit={onSubmit} className="flex min-w-0 flex-col gap-4">
-        <Field label="Nombre del set">
-          {({ id, invalid, ...aria }) => (
-            <Input
-              id={id}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Ej. Tema 3 — Derivadas"
-              maxLength={120}
-              invalid={invalid}
-              autoComplete="off"
-              disabled={generating}
-              {...aria}
-            />
-          )}
-        </Field>
+        {!isAppend && (
+          <Field label="Nombre del set">
+            {({ id, invalid, ...aria }) => (
+              <Input
+                id={id}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Ej. Tema 3 — Derivadas"
+                maxLength={120}
+                invalid={invalid}
+                autoComplete="off"
+                disabled={generating}
+                {...aria}
+              />
+            )}
+          </Field>
+        )}
+
+        <FileDropZone
+          onFiles={(incoming) => void uploadFiles(incoming)}
+          accept=".pdf,.txt,.md,text/*,application/pdf"
+          multiple
+          disabled={generating || uploading}
+          hint="PDF o texto. Los PDF se pueden mandar como texto extraído o tal cual."
+        />
 
         <div className="flex min-w-0 flex-col gap-1.5">
           <label htmlFor={searchId} className="text-[13px] font-medium text-onyx-inkMuted">
-            Documentos
+            O elige de tus documentos
           </label>
           <Input
             id={searchId}
@@ -204,9 +309,11 @@ export function GenerateSetModal({ open, onClose, onCreated }: GenerateSetModalP
             disabled={generating}
           />
           <p className="text-[12px] text-onyx-inkFaint" aria-live="polite">
-            {selected.length === 0
-              ? "Ningún archivo seleccionado"
-              : `${selected.length} ${selected.length === 1 ? "archivo seleccionado" : "archivos seleccionados"}`}
+            {uploading
+              ? "Subiendo archivos…"
+              : selected.length === 0
+                ? "Ningún archivo seleccionado"
+                : `${selected.length} ${selected.length === 1 ? "archivo seleccionado" : "archivos seleccionados"}`}
           </p>
         </div>
 
@@ -227,7 +334,7 @@ export function GenerateSetModal({ open, onClose, onCreated }: GenerateSetModalP
           {!filesError && files !== null && visibleFiles.length === 0 && (
             <p className="px-3 py-3 text-[13px] text-onyx-inkMuted">
               {files.length === 0
-                ? "Todavía no hay archivos. Sube uno en Archivos."
+                ? "Todavía no tienes documentos. Sube uno arriba."
                 : "Ningún archivo coincide con la búsqueda."}
             </p>
           )}
@@ -269,7 +376,9 @@ export function GenerateSetModal({ open, onClose, onCreated }: GenerateSetModalP
         />
 
         <div className="flex min-w-0 flex-col gap-2">
-          <p className="text-[13px] font-medium text-onyx-inkMuted">Cuántas tarjetas</p>
+          <p className="text-[13px] font-medium text-onyx-inkMuted">
+            {isAppend ? "Cuántas tarjetas nuevas" : "Cuántas tarjetas"}
+          </p>
           <div className="flex flex-wrap gap-2">
             {AMOUNT_OPTIONS.map((option) => (
               <Chip
@@ -315,12 +424,14 @@ export function GenerateSetModal({ open, onClose, onCreated }: GenerateSetModalP
             className="flex items-center gap-2 rounded-lg border border-onyx-line px-3 py-2 text-[13px] text-onyx-inkMuted"
           >
             <Spinner size="sm" label="Generando tarjetas" />
-            Generando las tarjetas. Puede tardar un poco.
+            {isAppend
+              ? "Generando tarjetas nuevas sin repetir las que ya tiene el set. Puede tardar un poco."
+              : "Generando las tarjetas. Puede tardar un poco."}
           </p>
         )}
 
         {formError && (
-          <p role="alert" className="text-[13px] leading-relaxed text-[#f0a8a1]">
+          <p role="alert" className="whitespace-pre-line text-[13px] leading-relaxed text-[#f0a8a1]">
             {formError}
           </p>
         )}

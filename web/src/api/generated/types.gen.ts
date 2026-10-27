@@ -624,6 +624,62 @@ export type FlashcardUpdate = {
 };
 
 /**
+ * GenerateExerciseRequest
+ *
+ * Payload para generar un ejercicio desde los examenes y ejercicios de un
+ * tema. El modelo recibe solo los archivos de tipo `examen` o `ejercicio`
+ * vinculados a ese tema.
+ */
+export type GenerateExerciseRequest = {
+    /**
+     * Tema Id
+     */
+    tema_id: number;
+    /**
+     * Instructions
+     *
+     * Indicaciones extra del usuario
+     */
+    instructions?: string | null;
+    /**
+     * File Mode
+     *
+     * Solo aplica a los PDF: texto extraido o archivo original
+     */
+    file_mode?: 'text' | 'file';
+    /**
+     * Model Override
+     */
+    model_override?: string | null;
+};
+
+/**
+ * GenerateExerciseResponse
+ *
+ * Ejercicio propuesto por el modelo y su solucion.
+ */
+export type GenerateExerciseResponse = {
+    /**
+     * Exercise
+     */
+    exercise: string;
+    /**
+     * Solution
+     */
+    solution: string;
+    /**
+     * Model
+     */
+    model: string;
+    /**
+     * Files
+     *
+     * Nombres de los archivos que se usaron
+     */
+    files?: Array<string>;
+};
+
+/**
  * GenerateFlashcardsRequest
  *
  * Payload para generar flashcards a partir de documentos.
@@ -2125,3 +2181,28 @@ export type GenerateFlashcardsStudyFlashcardsPostResponses = {
 };
 
 export type GenerateFlashcardsStudyFlashcardsPostResponse = GenerateFlashcardsStudyFlashcardsPostResponses[keyof GenerateFlashcardsStudyFlashcardsPostResponses];
+
+export type GenerateExerciseStudyExercisePostData = {
+    body: GenerateExerciseRequest;
+    path?: never;
+    query?: never;
+    url: '/study/exercise';
+};
+
+export type GenerateExerciseStudyExercisePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GenerateExerciseStudyExercisePostError = GenerateExerciseStudyExercisePostErrors[keyof GenerateExerciseStudyExercisePostErrors];
+
+export type GenerateExerciseStudyExercisePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: GenerateExerciseResponse;
+};
+
+export type GenerateExerciseStudyExercisePostResponse = GenerateExerciseStudyExercisePostResponses[keyof GenerateExerciseStudyExercisePostResponses];

@@ -13,11 +13,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.db import File, Flashcard, FlashcardSet, get_session
+from db.db import File, Flashcard, FlashcardSet, Tema, get_session
 from server.models import (
     CARD_TEXT_MAX_LENGTH,
     FileMode,
     FlashcardAmount,
+    GenerateExerciseRequest,
+    GenerateExerciseResponse,
     GenerateFlashcardsRequest,
     GenerateFlashcardsResponse,
 )
@@ -72,6 +74,83 @@ async def generate_flashcards(
     )
     db.commit()
     return response
+
+
+# Tipos de documento que sirven de inspiracion para un ejercicio.
+EXERCISE_KINDS = ("ejercicio", "examen")
+
+
+@router.post("/exercise", response_model=GenerateExerciseResponse)
+async def generate_exercise(
+    payload: GenerateExerciseRequest, db: Session = Depends(get_session)
+) -> GenerateExerciseResponse:
+    """Genera un ejercicio con solucion a partir de los examenes y ejercicios
+    de un tema.
+
+    Pasos: buscar el tema (404); quedarse con sus archivos de tipo "ejercicio"
+    o "examen" (400 si no hay ninguno); montar el mensaje con el nombre del
+    tema y las instructions del usuario; pedir al modelo el JSON
+    {exercise, solution} con _ask_model y el prompt "exercises"; si el parseo
+    falla, reintentar una vez pidiendo solo el JSON (502 si vuelve a fallar);
+    devolver ejercicio, solucion, modelo y nombres de los archivos usados.
+    """
+    tema = db.get(Tema, payload.tema_id)
+    if tema is None:
+        raise HTTPException(
+            status_code=404, detail=f"No existe el tema {payload.tema_id}"
+        )
+
+    source_files = [row for row in tema.files if row.kind in EXERCISE_KINDS]
+    if not source_files:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "El tema no tiene archivos de tipo ejercicio o examen. "
+                "Clasifícalos en Archivos para poder generar ejercicios."
+            ),
+        )
+
+    paths = [row.path for row in source_files]
+    message = (
+        f"Genera UN ejercicio nuevo, original y resoluble para el tema "
+        f"«{tema.name}», inspirado en los exámenes y ejercicios adjuntos: mismo "
+        "estilo y nivel, sin copiar ninguno de ellos."
+    )
+    if payload.instructions and payload.instructions.strip():
+        message = f"{message} Instrucciones del usuario: {payload.instructions.strip()}"
+
+    raw, model = await _ask_model(
+        message,
+        paths,
+        payload.model_override,
+        payload.file_mode,
+        system_prompt="exercises",
+    )
+    try:
+        parsed = _parse_exercise(raw)
+    except ValueError:
+        logger.warning("Ejercicio no parseable, reintentando con instruccion extra")
+        raw, model = await _ask_model(
+            f"{message} Devuelve solo el JSON, sin explicaciones.",
+            paths,
+            payload.model_override,
+            payload.file_mode,
+            system_prompt="exercises",
+        )
+        try:
+            parsed = _parse_exercise(raw)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=502,
+                detail=f"El modelo no devolvio JSON valido ni en el reintento: {exc}",
+            )
+
+    return GenerateExerciseResponse(
+        exercise=parsed["exercise"],
+        solution=parsed["solution"],
+        model=model,
+        files=[row.name for row in source_files],
+    )
 
 
 def resolve_amount(amount: int | FlashcardAmount) -> int:
@@ -139,12 +218,12 @@ async def generate_into_set(
         # Comentario libre del usuario: se respeta tal cual, sin sanear.
         message = f"{message} Instrucciones del usuario: {instructions.strip()}"
 
-    raw = await _ask_model(message, paths, model_override, file_mode)
+    raw, _model = await _ask_model(message, paths, model_override, file_mode)
     try:
         parsed = _parse_flashcards(raw)
     except ValueError:
         logger.warning("Respuesta no parseable, reintentando con instruccion extra")
-        raw = await _ask_model(
+        raw, _model = await _ask_model(
             f"{message} Devuelve solo el JSON, sin explicaciones.",
             paths,
             model_override,
@@ -242,18 +321,20 @@ async def _ask_model(
     paths: list[str],
     model_override: str | None,
     file_mode: FileMode = "text",
-) -> str:
-    """Pide las tarjetas al modelo y traduce sus errores a HTTPException.
+    system_prompt: str = "flashcards",
+) -> tuple[str, str]:
+    """Pide contenido al modelo y traduce sus errores a HTTPException.
 
-    Pasos: llamar a openrouter.send con system_prompt "flashcards", model_type
-    "pdf" y file_mode; un ValueError o FileNotFoundError se convierte en 400; un
-    RuntimeError, en 502; devolver el texto crudo.
+    Pasos: llamar a openrouter.send con el system_prompt indicado (por defecto
+    "flashcards"), model_type "pdf" y file_mode; un ValueError o
+    FileNotFoundError se convierte en 400; un RuntimeError, en 502; devolver
+    (texto crudo, modelo usado).
     """
     try:
-        raw, _model = await openrouter.send(
+        raw, model = await openrouter.send(
             message=message,
             model_type="pdf",
-            system_prompt="flashcards",
+            system_prompt=system_prompt,
             files=paths,
             file_mode=file_mode,
             model_override=model_override,
@@ -263,7 +344,37 @@ async def _ask_model(
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
-    return raw
+    return raw, model
+
+
+def _parse_exercise(raw: str) -> dict:
+    """Extrae el ejercicio y la solucion del texto devuelto por el modelo.
+
+    Pasos: buscar el primer "{" y el ultimo "}" y quedarse con ese fragmento;
+    json.loads (ValueError si falla, para que el llamante reintente); exigir un
+    dict con exercise y solution de tipo str y no vacios; devolverlos limpios.
+    """
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        raise ValueError("La respuesta del modelo no contiene un objeto JSON")
+
+    try:
+        data = json.loads(raw[start : end + 1])
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"JSON invalido en la respuesta del modelo: {exc}") from exc
+
+    if not isinstance(data, dict):
+        raise ValueError("La respuesta del modelo no es un objeto JSON")
+
+    exercise = data.get("exercise")
+    solution = data.get("solution")
+    if not isinstance(exercise, str) or not exercise.strip():
+        raise ValueError("La respuesta no trae un ejercicio")
+    if not isinstance(solution, str) or not solution.strip():
+        raise ValueError("La respuesta no trae una solucion")
+
+    return {"exercise": exercise.strip(), "solution": solution.strip()}
 
 
 def _parse_flashcards(raw: str) -> list[dict]:

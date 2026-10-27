@@ -17,6 +17,7 @@ import { ErrorNotice } from "./ErrorNotice";
 import { GenerateTopicCardsModal } from "./GenerateTopicCardsModal";
 import { NotFoundState } from "./NotFoundState";
 import { TopicDetailsForm } from "./TopicDetailsForm";
+import { TopicExerciseSection } from "./TopicExerciseSection";
 import { TopicFilesSection } from "./TopicFilesSection";
 import { TopicSetsSection } from "./TopicSetsSection";
 
@@ -152,6 +153,7 @@ export default function TopicPage() {
               onSaved={setTopic}
               onGenerate={() => setGenerateOpen(true)}
             />
+            <TopicExerciseSection topic={topic} files={files} />
           </div>
 
           <GenerateTopicCardsModal

@@ -307,3 +307,89 @@ def test_study_rejects_an_unknown_set(client, make_file, fake_openrouter):
     )
     assert response.status_code == 404
     assert fake_openrouter.calls == []
+
+
+def _tema_with_files(client, files):
+    """Crea asignatura + tema y le vincula los files indicados."""
+    subject = client.post(
+        "/asignatura",
+        json={"name": "__test_ejercicio__", "year": 1, "semester": 1, "color": "6f6f6f"},
+    )
+    assert subject.status_code == 201, subject.text
+
+    tema = client.post(
+        "/tema",
+        json={
+            "asignatura_id": subject.json()["id"],
+            "name": "Backtracking",
+            "file_ids": [file.id for file in files],
+        },
+    )
+    assert tema.status_code == 201, tema.text
+    return tema.json()["id"]
+
+
+def _set_kind(client, file_id, kind):
+    """Cambia el tipo de documento de un archivo."""
+    response = client.put(
+        f"/files/{file_id}",
+        json={"name": client.get(f"/files/{file_id}").json()["name"], "kind": kind},
+    )
+    assert response.status_code == 200, response.text
+
+
+def test_exercise_uses_only_exams_and_exercises(
+    client, make_file, fake_openrouter
+):
+    """Solo se mandan al modelo los archivos de tipo examen/ejercicio del tema."""
+    import json
+
+    examen = make_file(name="2024_enero.pdf", content=b"examen de grafos")
+    ejercicio = make_file(name="hoja_ejercicios.pdf", content=b"ejercicios de grafos")
+    teoria = make_file(name="tema_3.pdf", content=b"teoria de grafos")
+    _set_kind(client, examen.id, "examen")
+    _set_kind(client, ejercicio.id, "ejercicio")
+    _set_kind(client, teoria.id, "teoria")
+    tema_id = _tema_with_files(client, [examen, ejercicio, teoria])
+
+    fake_openrouter.send_reply = json.dumps(
+        {"exercise": "Recorre el grafo.", "solution": "Paso 1: ..."}, ensure_ascii=False
+    )
+
+    response = client.post(
+        "/study/exercise",
+        json={"tema_id": tema_id, "instructions": "con matrices de adyacencia"},
+    )
+    assert response.status_code == 200, response.text
+
+    body = response.json()
+    assert body["exercise"] == "Recorre el grafo."
+    assert body["solution"] == "Paso 1: ..."
+    assert sorted(body["files"]) == ["2024_enero.pdf", "hoja_ejercicios.pdf"]
+
+    call = fake_openrouter.calls[-1]
+    assert call["system_prompt"] == "exercises"
+    assert "Backtracking" in call["message"]
+    assert "con matrices de adyacencia" in call["message"]
+    assert not any("tema_3.pdf" in path for path in call["files"])
+
+
+def test_exercise_without_exams_or_exercises_returns_400(
+    client, make_file, fake_openrouter
+):
+    """Un tema sin archivos de examen/ejercicio no llama al modelo."""
+    teoria = make_file(name="tema_3.pdf", content=b"teoria")
+    _set_kind(client, teoria.id, "teoria")
+    tema_id = _tema_with_files(client, [teoria])
+
+    response = client.post("/study/exercise", json={"tema_id": tema_id})
+    assert response.status_code == 400
+    assert "ejercicio o examen" in response.json()["detail"]
+    assert fake_openrouter.calls == []
+
+
+def test_exercise_rejects_unknown_topic(client, fake_openrouter):
+    """Un tema inexistente devuelve 404."""
+    response = client.post("/study/exercise", json={"tema_id": 999})
+    assert response.status_code == 404
+    assert fake_openrouter.calls == []

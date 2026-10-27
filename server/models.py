@@ -406,3 +406,33 @@ class GenerateFlashcardsResponse(BaseModel):
     created: list[FlashcardRead]
     discarded: int
     duplicates: int = 0
+
+
+# --- Exercise -------------------------------------------------------------
+
+
+class GenerateExerciseRequest(BaseModel):
+    """Payload para generar un ejercicio desde los examenes y ejercicios de un
+    tema. El modelo recibe solo los archivos de tipo `examen` o `ejercicio`
+    vinculados a ese tema."""
+
+    tema_id: int
+    instructions: str | None = Field(
+        default=None, max_length=2000, description="Indicaciones extra del usuario"
+    )
+    file_mode: FileMode = Field(
+        default="text",
+        description="Solo aplica a los PDF: texto extraido o archivo original",
+    )
+    model_override: str | None = None
+
+
+class GenerateExerciseResponse(BaseModel):
+    """Ejercicio propuesto por el modelo y su solucion."""
+
+    exercise: str
+    solution: str
+    model: str
+    files: list[str] = Field(
+        default_factory=list, description="Nombres de los archivos que se usaron"
+    )

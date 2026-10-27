@@ -70,7 +70,7 @@ Páginas:
 - Archivo: Aquí se muestra otra vista de chat (componente reutilizado de Principal), pero para hablar sobre un archivo en especifico.
 - Asignaturas: Muestra todas las asignaturas, diciendo su nombre, de que semestre són y cuantos temas tienen. Si se hace click a una asignatura se lleva a la pagina "Asignatura"
 - Asignatura: Muestra todos los temas de una asignatura !TODO (aquí es lo del timeline)
-- Tema: Te permite modificar todos los archivos que tienen que ver con un tema
+- Tema: Te permite modificar todos los archivos que tienen que ver con un tema. Incluye una sección para generar un ejercicio (con solución) inspirado en los archivos de tipo Ejercicio y Examen del tema, con un comentario libre para la IA.
 - Eventos: Vista de calendario típica con todos los eventos. Se puede hacer click a la asignatura y te lleva a ella, modificar, darle click y te lleva al evento del calendario en iCloud.
 - Flashcard Sets: Aquí es donde se podrá entrenar, le das a play y te muestra los flashcards, un click y te muestra la parte de atrás donde podrás determinar si la pregunta era fácil, media o dificil para luego determinar cuando mostrartelas otra vez. Habrá un botón para pasar por todas las flashcards de ese set, o solo las que toque revisar. Dentro del repaso se puede editar (front/back) o borrar la tarjeta actual y pasar a la siguiente sin salir de la sesión.
 - All Flashcard Sets:
@@ -150,7 +150,8 @@ Cada categoría de view aquí se lleva su propia carpeta, y su propio endpoint p
 - Openrouter
     - Send(message:str, model_type:str, system_prompt:str, files:list=None, model_override=None): Envía mensaje, pudiendo elegir el tipo de modelo:enum[str] = ["pdf", "general"] (luego se añadirán más modelos), o sobreescribir totalmente el nombre de modelo como tal (model_override). Elige también el system prompt, que hace referencia al nombre del archivo de prompt pero sin el .txt al final, entonces tiene que referenciar a un archivo real. Files referencia a una lista de paths de files que mandar opcionalmente al modelo.
 - Study
-    - Generate flashcards: Necesita que el usuario le apunte a un flashcard set y a uno o más files. Usa Send del view de Openrouter. Puedes elegir núm de flashcards. Tiene JSON parsing por si la IA se lía (poco probable). En español. Sirve también para completar un set existente: mete las tarjetas que ya tiene en el mensaje y devuelve `duplicates`. 
+    - Generate flashcards: Necesita que el usuario le apunte a un flashcard set y a uno o más files. Usa Send del view de Openrouter. Puedes elegir núm de flashcards. Tiene JSON parsing por si la IA se lía (poco probable). En español. Sirve también para completar un set existente: mete las tarjetas que ya tiene en el mensaje y devuelve `duplicates`.
+    - Generate exercise: `POST /study/exercise` con `tema_id`, `instructions` opcional y `file_mode`. Usa solo los archivos del tema de tipo `ejercicio` o `examen` (400 si no hay ninguno) y el prompt `exercises`. Devuelve `exercise`, `solution`, `model` y los nombres de los `files` usados. No se guarda en la BBDD. 
 - Chat
     - Get thread: `GET /chat/thread` devuelve el hilo global (Principal). Con `?file_id=` devuelve el hilo de ese archivo (página Archivo). Si no existe, se crea vacío.
     - Get messages: `GET /chat/messages` lista los mensajes del hilo (global o `?file_id=`), ordenados por fecha.

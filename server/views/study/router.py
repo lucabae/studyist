@@ -7,13 +7,24 @@ no debe bloquear el event loop.
 
 import json
 import logging
+import time
 import unicodedata
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.db import File, Flashcard, FlashcardSet, Tema, get_session
+from db.db import (
+    MADRID,
+    Ejercicio,
+    EjercicioTestCase,
+    File,
+    Flashcard,
+    FlashcardSet,
+    Tema,
+    get_session,
+)
 from server.models import (
     CARD_TEXT_MAX_LENGTH,
     FileMode,
@@ -84,15 +95,20 @@ EXERCISE_KINDS = ("ejercicio", "examen")
 async def generate_exercise(
     payload: GenerateExerciseRequest, db: Session = Depends(get_session)
 ) -> GenerateExerciseResponse:
-    """Genera un ejercicio con solucion a partir de los examenes y ejercicios
-    de un tema.
+    """Genera y guarda un ejercicio con solucion a partir de los examenes y
+    ejercicios de un tema.
 
     Pasos: buscar el tema (404); quedarse con sus archivos de tipo "ejercicio"
     o "examen" (400 si no hay ninguno); montar el mensaje con el nombre del
-    tema y las instructions del usuario; pedir al modelo el JSON
-    {exercise, solution} con _ask_model y el prompt "exercises"; si el parseo
-    falla, reintentar una vez pidiendo solo el JSON (502 si vuelve a fallar);
-    devolver ejercicio, solucion, modelo y nombres de los archivos usados.
+    tema, el tipo pedido y las instructions del usuario; pedir al modelo el JSON
+    con _ask_model y el prompt "exercises" (texto) o "exercises_code"
+    (programacion); si el parseo falla, reintentar una vez pidiendo solo el
+    JSON (502 si vuelve a fallar); insertar el Ejercicio y, si es de
+    programacion, sus test cases; devolver el ejercicio guardado, el modelo y
+    los nombres de los archivos usados.
+
+    Los archivos son solo la inspiracion: el ejercicio queda ligado al tema y
+    se puede volver a abrir desde ahi.
     """
     tema = db.get(Tema, payload.tema_id)
     if tema is None:
@@ -111,23 +127,37 @@ async def generate_exercise(
         )
 
     paths = [row.path for row in source_files]
+    is_code = payload.kind == "programacion"
+    prompt = "exercises_code" if is_code else "exercises"
+    kind_label = (
+        "un problema de programación en Python, con 5 test cases"
+        if is_code
+        else "un ejercicio de texto con su solución"
+    )
     message = (
-        f"Genera UN ejercicio nuevo, original y resoluble para el tema "
+        f"Genera {kind_label}, nuevo, original y resoluble, para el tema "
         f"«{tema.name}», inspirado en los exámenes y ejercicios adjuntos: mismo "
         "estilo y nivel, sin copiar ninguno de ellos."
     )
     if payload.instructions and payload.instructions.strip():
         message = f"{message} Instrucciones del usuario: {payload.instructions.strip()}"
 
+    started = time.monotonic()
+    logger.info(
+        "Generando ejercicio %s del tema %s con %d archivos",
+        payload.kind,
+        tema.id,
+        len(source_files),
+    )
     raw, model = await _ask_model(
         message,
         paths,
         payload.model_override,
         payload.file_mode,
-        system_prompt="exercises",
+        system_prompt=prompt,
     )
     try:
-        parsed = _parse_exercise(raw)
+        parsed = _parse_exercise(raw, require_test_cases=is_code)
     except ValueError:
         logger.warning("Ejercicio no parseable, reintentando con instruccion extra")
         raw, model = await _ask_model(
@@ -135,22 +165,51 @@ async def generate_exercise(
             paths,
             payload.model_override,
             payload.file_mode,
-            system_prompt="exercises",
+            system_prompt=prompt,
         )
         try:
-            parsed = _parse_exercise(raw)
+            parsed = _parse_exercise(raw, require_test_cases=is_code)
         except ValueError as exc:
             raise HTTPException(
                 status_code=502,
                 detail=f"El modelo no devolvio JSON valido ni en el reintento: {exc}",
             )
 
-    return GenerateExerciseResponse(
-        exercise=parsed["exercise"],
+    ejercicio = Ejercicio(
+        tema_id=tema.id,
+        kind=payload.kind,
+        statement=parsed["statement"],
         solution=parsed["solution"],
+        explanation=parsed["explanation"],
+        created_at=datetime.now(MADRID),
+    )
+    db.add(ejercicio)
+    db.flush()
+
+    for position, case in enumerate(parsed["test_cases"], start=1):
+        db.add(
+            EjercicioTestCase(
+                ejercicio_id=ejercicio.id,
+                position=position,
+                input=json.dumps(case["args"], ensure_ascii=False),
+                expected=json.dumps(case["expected"], ensure_ascii=False),
+            )
+        )
+
+    db.flush()
+    response = GenerateExerciseResponse(
+        exercise=ejercicio,  # type: ignore[arg-type]
         model=model,
         files=[row.name for row in source_files],
     )
+    db.commit()
+    logger.info(
+        "Ejercicio %s guardado en %.1f s con %d test cases",
+        ejercicio.id,
+        time.monotonic() - started,
+        len(parsed["test_cases"]),
+    )
+    return response
 
 
 def resolve_amount(amount: int | FlashcardAmount) -> int:
@@ -347,12 +406,15 @@ async def _ask_model(
     return raw, model
 
 
-def _parse_exercise(raw: str) -> dict:
-    """Extrae el ejercicio y la solucion del texto devuelto por el modelo.
+def _parse_exercise(raw: str, require_test_cases: bool = False) -> dict:
+    """Extrae enunciado, respuesta, explicacion y test cases del modelo.
 
     Pasos: buscar el primer "{" y el ultimo "}" y quedarse con ese fragmento;
     json.loads (ValueError si falla, para que el llamante reintente); exigir un
-    dict con exercise y solution de tipo str y no vacios; devolverlos limpios.
+    dict con statement, solution y explanation de tipo str y no vacios; si
+    require_test_cases, exigir una lista test_cases con al menos un caso, cada
+    uno con args (lista) y expected, ambos serializables a JSON; devolver todo
+    limpio.
     """
     start = raw.find("{")
     end = raw.rfind("}")
@@ -367,14 +429,39 @@ def _parse_exercise(raw: str) -> dict:
     if not isinstance(data, dict):
         raise ValueError("La respuesta del modelo no es un objeto JSON")
 
-    exercise = data.get("exercise")
-    solution = data.get("solution")
-    if not isinstance(exercise, str) or not exercise.strip():
-        raise ValueError("La respuesta no trae un ejercicio")
-    if not isinstance(solution, str) or not solution.strip():
-        raise ValueError("La respuesta no trae una solucion")
+    parsed: dict = {}
+    for field in ("statement", "solution", "explanation"):
+        value = data.get(field)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"La respuesta no trae un campo {field} valido")
+        parsed[field] = value.strip()
 
-    return {"exercise": exercise.strip(), "solution": solution.strip()}
+    parsed["test_cases"] = []
+    if require_test_cases:
+        candidates = data.get("test_cases")
+        if not isinstance(candidates, list) or not candidates:
+            raise ValueError("La respuesta no trae test cases")
+
+        for candidate in candidates:
+            if not isinstance(candidate, dict):
+                raise ValueError("Un test case no es un objeto JSON")
+            args = candidate.get("args")
+            if not isinstance(args, list):
+                raise ValueError("Un test case no trae args como lista")
+            if "expected" not in candidate:
+                raise ValueError("Un test case no trae expected")
+            try:
+                json.dumps(args, ensure_ascii=False)
+                json.dumps(candidate["expected"], ensure_ascii=False)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"Un test case no es serializable a JSON: {exc}"
+                ) from exc
+            parsed["test_cases"].append(
+                {"args": args, "expected": candidate["expected"]}
+            )
+
+    return parsed
 
 
 def _parse_flashcards(raw: str) -> list[dict]:

@@ -6,6 +6,7 @@
  */
 import { Route, Routes } from "react-router-dom";
 import AppShell from "./layout/AppShell";
+import ExercisePage from "./pages/exercises/ExercisePage";
 import EventsPage from "./pages/events/EventsPage";
 import FilePage from "./pages/files/FilePage";
 import FilesPage from "./pages/files/FilesPage";
@@ -45,6 +46,7 @@ export default function AppRoutes() {
         <Route path="/asignaturas" element={<SubjectsPage />} />
         <Route path="/asignaturas/:id" element={<SubjectPage />} />
         <Route path="/temas/:id" element={<TopicPage />} />
+        <Route path="/ejercicios/:id" element={<ExercisePage />} />
         <Route path="/eventos" element={<EventsPage />} />
         <Route path="/flashcards" element={<FlashcardSetsPage />} />
         <Route path="/flashcards/:setId" element={<FlashcardSetPage />} />

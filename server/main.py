@@ -13,6 +13,7 @@ from db.db import init_engine
 from server.scripts import files as files_script
 from server.views.asignatura.router import router as asignatura_router
 from server.views.chat.router import router as chat_router
+from server.views.ejercicio.router import router as ejercicio_router
 from server.views.evento.router import router as evento_router
 from server.views.files.router import router as files_router
 from server.views.flashcard.router import router as flashcard_router
@@ -154,6 +155,7 @@ def create_app() -> FastAPI:
         flashcard_router,
         openrouter_router,
         study_router,
+        ejercicio_router,
     ):
         app.include_router(router)
 

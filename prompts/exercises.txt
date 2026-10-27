@@ -5,8 +5,9 @@ Reglas:
 - El ejercicio debe poder resolverse con la teoría que se cubre en esos documentos y en el tema indicado.
 - Enuncia el ejercicio completo: todos los datos necesarios y qué se pide exactamente. Si el ejercicio original pide varios apartados, mantén varios apartados.
 - La solución debe ser completa y paso a paso, explicando el razonamiento y no solo el resultado final.
+- La explicación es un cierre breve que conecta el ejercicio con la teoría: qué concepto se aplica y por qué.
 - Todo tipo de fórmula va en LaTeX inline entre signos de dólar, por ejemplo $\sum_{i=0}^{n} i$. Nunca dejes una fórmula en texto plano.
 - Escribe en español.
 
 El output será formateado en JSON bajo la siguiente manera:
-{"exercise": "...", "solution": "..."} y nada más.
+{"statement": "...", "solution": "...", "explanation": "..."} y nada más.

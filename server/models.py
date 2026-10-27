@@ -7,7 +7,7 @@ serializacion.
 """
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -18,6 +18,8 @@ EventType = Literal["Examen", "Tarea"]
 ModelType = Literal["pdf", "general"]
 ChatRole = Literal["user", "assistant"]
 FlashcardAmount = Literal["pocas", "medio", "muchas"]
+# Tipo de ejercicio: texto puro o problema de programacion con test cases.
+ExerciseKind = Literal["programacion", "texto"]
 # Como se mandan los PDFs al modelo: "text" extrae el texto con pypdfium2 y lo
 # manda como texto plano (sin coste de procesado de archivo); "file" envia el
 # PDF en base64 para que OpenRouter lo parsee (nativo u OCR, cobrado por pagina).
@@ -414,9 +416,12 @@ class GenerateFlashcardsResponse(BaseModel):
 class GenerateExerciseRequest(BaseModel):
     """Payload para generar un ejercicio desde los examenes y ejercicios de un
     tema. El modelo recibe solo los archivos de tipo `examen` o `ejercicio`
-    vinculados a ese tema."""
+    vinculados a ese tema. El ejercicio generado se guarda en la BBDD."""
 
     tema_id: int
+    kind: ExerciseKind = Field(
+        default="texto", description="texto puro o problema de programacion"
+    )
     instructions: str | None = Field(
         default=None, max_length=2000, description="Indicaciones extra del usuario"
     )
@@ -427,12 +432,78 @@ class GenerateExerciseRequest(BaseModel):
     model_override: str | None = None
 
 
-class GenerateExerciseResponse(BaseModel):
-    """Ejercicio propuesto por el modelo y su solucion."""
+class EjercicioTestCaseRead(BaseModel):
+    """Caso de prueba de un ejercicio de programacion.
 
-    exercise: str
+    input es un array JSON con los argumentos de solve(); expected, el valor
+    esperado en JSON.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    position: int
+    input: str
+    expected: str
+
+
+class EjercicioRead(BaseModel):
+    """Ejercicio guardado, con sus test cases si es de programacion."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tema_id: int
+    kind: ExerciseKind
+    statement: str
     solution: str
+    explanation: str
+    created_at: datetime
+    test_cases: list[EjercicioTestCaseRead] = Field(default_factory=list)
+
+
+class EjercicioSummary(BaseModel):
+    """Ejercicio para la lista de un tema, sin solucion ni test cases."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tema_id: int
+    kind: ExerciseKind
+    statement: str
+    created_at: datetime
+    test_case_count: int = 0
+
+
+class GenerateExerciseResponse(BaseModel):
+    """Ejercicio guardado y los archivos que se usaron para generarlo."""
+
+    exercise: EjercicioRead
     model: str
     files: list[str] = Field(
         default_factory=list, description="Nombres de los archivos que se usaron"
     )
+
+
+class RunExerciseRequest(BaseModel):
+    """Codigo Python del usuario para pasar los test cases del ejercicio."""
+
+    code: str = Field(min_length=1, max_length=20000)
+
+
+class TestCaseResult(BaseModel):
+    """Resultado de un test case: si paso, que devolvio y el error si lo hubo."""
+
+    position: int
+    passed: bool
+    expected: Any = None
+    actual: Any = None
+    error: str | None = None
+
+
+class RunExerciseResponse(BaseModel):
+    """Resultado global de la ejecucion y el detalle por test case."""
+
+    ok: bool
+    results: list[TestCaseResult] = Field(default_factory=list)
+    error: str | None = None

@@ -56,7 +56,7 @@ Asegurarse siempre que es Mobile Ready. NO crear una WebApp. Quitar que si hago 
 
 Los temas se muestran como árbol plegable con sangría (un tema puede tener subtemas, sin límite de profundidad). El tema padre se elige al crear uno nuevo y se puede cambiar desde el detalle del tema.
 
-Rutas del frontend: `/` (Principal), `/archivos`, `/archivos/:id`, `/asignaturas`, `/asignaturas/:id`, `/temas/:id`, `/eventos`, `/flashcards` (All Flashcard Sets + test global), `/flashcards/:setId` (entrenar el set), `/flashcards/:setId/cards/:cardId` (gestionar una flashcard).
+Rutas del frontend: `/` (Principal), `/archivos`, `/archivos/:id`, `/asignaturas`, `/asignaturas/:id`, `/temas/:id`, `/ejercicios/:id` (resolver o leer un ejercicio guardado), `/eventos`, `/flashcards` (All Flashcard Sets + test global), `/flashcards/:setId` (entrenar el set), `/flashcards/:setId/cards/:cardId` (gestionar una flashcard).
 
 El chat responde en **streaming**: `POST /chat/messages/stream` (SSE) y el texto se pinta según llega, sin esperar a la respuesta completa. El cliente vive en `web/src/lib/chatStream.ts`; `ChatPanel` recibe `streaming` para ocultar los puntos de "escribiendo" en cuanto entra el primer trozo.
 
@@ -70,7 +70,7 @@ Páginas:
 - Archivo: Aquí se muestra otra vista de chat (componente reutilizado de Principal), pero para hablar sobre un archivo en especifico.
 - Asignaturas: Muestra todas las asignaturas, diciendo su nombre, de que semestre són y cuantos temas tienen. Si se hace click a una asignatura se lleva a la pagina "Asignatura"
 - Asignatura: Muestra todos los temas de una asignatura !TODO (aquí es lo del timeline)
-- Tema: Te permite modificar todos los archivos que tienen que ver con un tema. Incluye una sección para generar un ejercicio (con solución) inspirado en los archivos de tipo Ejercicio y Examen del tema, con un comentario libre para la IA.
+- Tema: Te permite modificar todos los archivos que tienen que ver con un tema. Incluye una sección de ejercicios: se generan (tipo texto o programación) a partir de los archivos de tipo Ejercicio y Examen del tema, con un comentario libre para la IA, y quedan guardados y listados en el tema. Cada ejercicio se abre en `/ejercicios/:id`.
 - Eventos: Vista de calendario típica con todos los eventos. Se puede hacer click a la asignatura y te lleva a ella, modificar, darle click y te lleva al evento del calendario en iCloud.
 - Flashcard Sets: Aquí es donde se podrá entrenar, le das a play y te muestra los flashcards, un click y te muestra la parte de atrás donde podrás determinar si la pregunta era fácil, media o dificil para luego determinar cuando mostrartelas otra vez. Habrá un botón para pasar por todas las flashcards de ese set, o solo las que toque revisar. Dentro del repaso se puede editar (front/back) o borrar la tarjeta actual y pasar a la siguiente sin salir de la sesión.
 - All Flashcard Sets:
@@ -151,7 +151,12 @@ Cada categoría de view aquí se lleva su propia carpeta, y su propio endpoint p
     - Send(message:str, model_type:str, system_prompt:str, files:list=None, model_override=None): Envía mensaje, pudiendo elegir el tipo de modelo:enum[str] = ["pdf", "general"] (luego se añadirán más modelos), o sobreescribir totalmente el nombre de modelo como tal (model_override). Elige también el system prompt, que hace referencia al nombre del archivo de prompt pero sin el .txt al final, entonces tiene que referenciar a un archivo real. Files referencia a una lista de paths de files que mandar opcionalmente al modelo.
 - Study
     - Generate flashcards: Necesita que el usuario le apunte a un flashcard set y a uno o más files. Usa Send del view de Openrouter. Puedes elegir núm de flashcards. Tiene JSON parsing por si la IA se lía (poco probable). En español. Sirve también para completar un set existente: mete las tarjetas que ya tiene en el mensaje y devuelve `duplicates`.
-    - Generate exercise: `POST /study/exercise` con `tema_id`, `instructions` opcional y `file_mode`. Usa solo los archivos del tema de tipo `ejercicio` o `examen` (400 si no hay ninguno) y el prompt `exercises`. Devuelve `exercise`, `solution`, `model` y los nombres de los `files` usados. No se guarda en la BBDD. 
+    - Generate exercise: `POST /study/exercise` con `tema_id`, `kind` (`texto` por defecto o `programacion`), `instructions` opcional y `file_mode`. Usa solo los archivos del tema de tipo `ejercicio` o `examen` (400 si no hay ninguno) y el prompt `exercises` (texto) o `exercises_code` (programación). Guarda el ejercicio en la BBDD ligado al tema y devuelve `exercise` (con sus test cases), `model` y los nombres de los `files` usados.
+- Ejercicio
+    - `GET /ejercicio?tema_id=`: lista de ejercicios guardados (resumen, del más reciente al más antiguo).
+    - `GET /ejercicio/{id}`: ejercicio completo con sus test cases.
+    - `DELETE /ejercicio/{id}`: borra el ejercicio y sus test cases en cascada.
+    - `POST /ejercicio/{id}/run`: body `{code}`. Solo ejercicios de programación (400 en los de texto). Ejecuta `solve(*args)` contra los test cases en un subproceso `python -I` con timeout de 5 s y devuelve `ok`, el detalle por caso (`position`, `passed`, `expected`, `actual`, `error`) y un `error` global si el código no llega a correr. El código del usuario se ejecuta en local: no es una sandbox de red ni de ficheros.
 - Chat
     - Get thread: `GET /chat/thread` devuelve el hilo global (Principal). Con `?file_id=` devuelve el hilo de ese archivo (página Archivo). Si no existe, se crea vacío.
     - Get messages: `GET /chat/messages` lista los mensajes del hilo (global o `?file_id=`), ordenados por fecha.
@@ -229,6 +234,20 @@ Hilo de conversación interno con la IA. Uno global (página Principal, `File` N
 - **Thumbnail**:str *(Path a /thumb, puede ser NULL)*
 - **Hash**:str *(sha256 del contenido, UNIQUE. Evita guardar dos veces el mismo archivo: si se resube, la API devuelve 409 con el id del que ya existe)*
 
+**Ejercicio**
+- **Tema**:ForeignKey[Tema] *(ON DELETE CASCADE: al borrar el tema caen sus ejercicios)*
+- **Kind**:enum[str] = ["programacion", "texto"] *(texto: enunciado, respuesta y explicación en texto; programacion: solución en Python + test cases)*
+- **Statement**:text *(Enunciado)*
+- **Solution**:text *(Respuesta; código Python si es de programación)*
+- **Explanation**:text *(Explicación de la solución)*
+- **Created at**:DateTime *(Madrid)*
+
+**Ejercicio Test Case**
+- **Ejercicio**:ForeignKey[Ejercicio] *(ON DELETE CASCADE)*
+- **Position**:num *(Orden 1..n)*
+- **Input**:text *(Array JSON con los argumentos posicionales de solve())*
+- **Expected**:text *(Valor esperado en JSON)*
+
 **Flashcard Set**
 - **Nombre**:str
 
@@ -259,6 +278,7 @@ Si eres agente: nunca crearás un archivo no mencionado en esta arquitectura (ex
 - /web
     - Proyecto Vite + React TS
     - src/lib/chatStream.ts: cliente SSE del chat en streaming (parsea meta/delta/done/error).
+    - src/components/CodeEditor.tsx: editor de código CodeMirror 6 (resaltado de Python, números de línea, autocompletado y Tab/Shift+Tab para indentar). Se usa en la página de ejercicios de programación.
     - src/components/TemaPicker.tsx: selector reutilizable de tema con búsqueda por nombre y filtro por asignatura.
     ...
 - /prompts
@@ -272,9 +292,11 @@ Si eres agente: nunca crearás un archivo no mencionado en esta arquitectura (ex
         - files.py: Hacer retrieve de files, borrarlos y subirlos.
         - generate_thumb.py: Le pasas un Path a un archivo y te genera un thumbnail en /thumb/ y te devuelve su path.
         - spaced_repetition.py: Intervalos de repaso (hard 1d / medium 2d / easy 3d) y cálculo de si una tarjeta toca hoy.
+        - python_runner.py: ejecuta el código Python del usuario contra los test cases de un ejercicio en un subproceso `python -I` con timeout y devuelve el resultado por caso.
     - /views
         ... Todas las views mencionadas en [Views](#views)
         - /chat/router.py: Hilos y mensajes del chat interno (global y por archivo).
+        - /ejercicio/router.py: Ejercicios guardados (lista, detalle, borrado) y corrección del código de los de programación.
     - requirements.txt (sin mencionar versión exacta a no ser que sea obligatorio y poniendo los paquetes estrictamente necesarios)
 - /tests
     - test_files.py, test_flashcards.py, test_chat.py: pruebas de las reglas que no son CRUD trivial (dedupe por hash, FTS, repaso espaciado, historial de chat). pytest con `TestClient` y una DB temporal.

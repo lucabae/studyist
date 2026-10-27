@@ -324,6 +324,58 @@ class Tema(Base):
         return [child.id for child in self.children]
 
 
+class Ejercicio(Base):
+    """Ejercicio generado a partir de un tema, guardado para revisitarlo.
+
+    kind "texto": enunciado + respuesta + explicacion en texto.
+    kind "programacion": solucion en Python y test cases en ejercicio_test_case.
+    """
+
+    __tablename__ = "ejercicio"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tema_id: Mapped[int] = mapped_column(
+        ForeignKey("tema.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    statement: Mapped[str] = mapped_column(Text, nullable=False)
+    solution: Mapped[str] = mapped_column(Text, nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(MadridDateTime, nullable=False)
+
+    test_cases: Mapped[list["EjercicioTestCase"]] = relationship(
+        back_populates="ejercicio",
+        cascade="all, delete-orphan",
+        order_by="EjercicioTestCase.position",
+    )
+
+    @property
+    def test_case_count(self) -> int:
+        """Numero de test cases, para el resumen de la lista."""
+        return len(self.test_cases)
+
+
+class EjercicioTestCase(Base):
+    """Caso de prueba de un ejercicio de programacion.
+
+    input es el JSON de los argumentos posicionales de solve(); expected, el
+    valor esperado en JSON. Se guardan como texto para no depender del soporte
+    JSON de SQLite.
+    """
+
+    __tablename__ = "ejercicio_test_case"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ejercicio_id: Mapped[int] = mapped_column(
+        ForeignKey("ejercicio.id", ondelete="CASCADE"), nullable=False
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    input: Mapped[str] = mapped_column(Text, nullable=False)
+    expected: Mapped[str] = mapped_column(Text, nullable=False)
+
+    ejercicio: Mapped["Ejercicio"] = relationship(back_populates="test_cases")
+
+
 class FlashcardSet(Base):
     """Conjunto de flashcards. Una flashcard pertenece a un solo set."""
 

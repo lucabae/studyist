@@ -3,9 +3,11 @@ import { Link, useParams } from "react-router-dom";
 import {
   getAsignaturaAsignaturaAsignaturaIdGet,
   getTemaTemaTemaIdGet,
+  listEjerciciosEjercicioGet,
   listFilesFilesGet,
   listFlashcardSetsFlashcardSetGet,
   listTemasTemaGet,
+  type EjercicioSummary,
   type FileRead,
   type FlashcardSetRead,
   type TemaRead,
@@ -34,6 +36,7 @@ export default function TopicPage() {
   const [topic, setTopic] = useState<TemaRead | null>(null);
   const [files, setFiles] = useState<FileRead[]>([]);
   const [sets, setSets] = useState<FlashcardSetRead[]>([]);
+  const [exercises, setExercises] = useState<EjercicioSummary[]>([]);
   const [siblings, setSiblings] = useState<TemaRead[]>([]);
   const [subjectName, setSubjectName] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("loading");
@@ -47,10 +50,11 @@ export default function TopicPage() {
     }
 
     setStatus("loading");
-    const [topicResult, filesResult, setsResult] = await Promise.all([
+    const [topicResult, filesResult, setsResult, exercisesResult] = await Promise.all([
       getTemaTemaTemaIdGet({ path: { tema_id: temaId } }),
       listFilesFilesGet({ query: { limit: 500 } }),
       listFlashcardSetsFlashcardSetGet(),
+      listEjerciciosEjercicioGet({ query: { tema_id: temaId } }),
     ]);
 
     if (topicResult.response?.status === 404) {
@@ -58,9 +62,20 @@ export default function TopicPage() {
       return;
     }
 
-    if (topicResult.error || filesResult.error || setsResult.error || !topicResult.data) {
+    if (
+      topicResult.error ||
+      filesResult.error ||
+      setsResult.error ||
+      exercisesResult.error ||
+      !topicResult.data
+    ) {
       setError(
-        apiErrorMessage(topicResult.error ?? filesResult.error ?? setsResult.error),
+        apiErrorMessage(
+          topicResult.error ??
+            filesResult.error ??
+            setsResult.error ??
+            exercisesResult.error,
+        ),
       );
       setStatus("error");
       return;
@@ -70,6 +85,7 @@ export default function TopicPage() {
     setTopic(loaded);
     setFiles(filesResult.data ?? []);
     setSets(setsResult.data ?? []);
+    setExercises(exercisesResult.data ?? []);
     setStatus("ready");
 
     // La asignatura y sus temas son contexto (miga de pan y selector de padre):
@@ -153,7 +169,19 @@ export default function TopicPage() {
               onSaved={setTopic}
               onGenerate={() => setGenerateOpen(true)}
             />
-            <TopicExerciseSection topic={topic} files={files} />
+            <TopicExerciseSection
+              topic={topic}
+              files={files}
+              exercises={exercises}
+              onCreated={() => {
+                // El listado trae el resumen con contadores: se recarga.
+                void listEjerciciosEjercicioGet({
+                  query: { tema_id: topic.id },
+                }).then((result) => {
+                  if (result.data) setExercises(result.data);
+                });
+              }}
+            />
           </div>
 
           <GenerateTopicCardsModal

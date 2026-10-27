@@ -353,7 +353,12 @@ def test_exercise_uses_only_exams_and_exercises(
     tema_id = _tema_with_files(client, [examen, ejercicio, teoria])
 
     fake_openrouter.send_reply = json.dumps(
-        {"exercise": "Recorre el grafo.", "solution": "Paso 1: ..."}, ensure_ascii=False
+        {
+            "statement": "Recorre el grafo.",
+            "solution": "Paso 1: ...",
+            "explanation": "Se aplica DFS.",
+        },
+        ensure_ascii=False,
     )
 
     response = client.post(
@@ -363,15 +368,106 @@ def test_exercise_uses_only_exams_and_exercises(
     assert response.status_code == 200, response.text
 
     body = response.json()
-    assert body["exercise"] == "Recorre el grafo."
-    assert body["solution"] == "Paso 1: ..."
+    exercise = body["exercise"]
+    assert exercise["statement"] == "Recorre el grafo."
+    assert exercise["solution"] == "Paso 1: ..."
+    assert exercise["explanation"] == "Se aplica DFS."
+    assert exercise["kind"] == "texto"
+    assert exercise["test_cases"] == []
     assert sorted(body["files"]) == ["2024_enero.pdf", "hoja_ejercicios.pdf"]
+
+    listed = client.get("/ejercicio", params={"tema_id": tema_id}).json()
+    assert [item["id"] for item in listed] == [exercise["id"]]
+    assert listed[0]["test_case_count"] == 0
 
     call = fake_openrouter.calls[-1]
     assert call["system_prompt"] == "exercises"
     assert "Backtracking" in call["message"]
     assert "con matrices de adyacencia" in call["message"]
     assert not any("tema_3.pdf" in path for path in call["files"])
+
+
+def test_programming_exercise_stores_test_cases_and_runs_code(
+    client, make_file, fake_openrouter
+):
+    """Un ejercicio de programación guarda sus test cases y corrige el código."""
+    import json
+
+    examen = make_file(name="2024_enero.pdf", content=b"examen de bucles")
+    _set_kind(client, examen.id, "examen")
+    tema_id = _tema_with_files(client, [examen])
+
+    fake_openrouter.send_reply = json.dumps(
+        {
+            "statement": "Suma dos enteros.",
+            "solution": "def solve(a, b):\n    return a + b",
+            "explanation": "Suma directa.",
+            "test_cases": [
+                {"args": [1, 2], "expected": 3},
+                {"args": [-1, 1], "expected": 0},
+            ],
+        },
+        ensure_ascii=False,
+    )
+
+    created = client.post(
+        "/study/exercise",
+        json={"tema_id": tema_id, "kind": "programacion"},
+    )
+    assert created.status_code == 200, created.text
+
+    exercise = created.json()["exercise"]
+    assert exercise["kind"] == "programacion"
+    assert len(exercise["test_cases"]) == 2
+    assert exercise["test_cases"][0]["input"] == "[1, 2]"
+    assert fake_openrouter.calls[-1]["system_prompt"] == "exercises_code"
+
+    correct = client.post(
+        f"/ejercicio/{exercise['id']}/run",
+        json={"code": "def solve(a, b):\n    return a + b"},
+    )
+    assert correct.status_code == 200, correct.text
+    assert correct.json()["ok"] is True
+    assert [result["passed"] for result in correct.json()["results"]] == [True, True]
+
+    wrong = client.post(
+        f"/ejercicio/{exercise['id']}/run",
+        json={"code": "def solve(a, b):\n    return a - b"},
+    )
+    assert wrong.status_code == 200, wrong.text
+    body = wrong.json()
+    assert body["ok"] is False
+    assert body["results"][0]["passed"] is False
+    assert body["results"][0]["actual"] == -1
+    assert body["results"][0]["expected"] == 3
+    assert body["results"][1]["passed"] is False
+
+    listed = client.get("/ejercicio", params={"tema_id": tema_id}).json()
+    assert listed[0]["test_case_count"] == 2
+
+    deleted = client.delete(f"/ejercicio/{exercise['id']}")
+    assert deleted.status_code == 204
+    assert client.get(f"/ejercicio/{exercise['id']}").status_code == 404
+
+
+def test_run_rejects_text_exercises(client, make_file, fake_openrouter):
+    """Un ejercicio de texto no se puede ejecutar."""
+    import json
+
+    examen = make_file(name="2024_enero.pdf", content=b"examen")
+    _set_kind(client, examen.id, "examen")
+    tema_id = _tema_with_files(client, [examen])
+    fake_openrouter.send_reply = json.dumps(
+        {"statement": "Explica X.", "solution": "X es...", "explanation": "..."}
+    )
+
+    created = client.post("/study/exercise", json={"tema_id": tema_id})
+    exercise_id = created.json()["exercise"]["id"]
+
+    response = client.post(
+        f"/ejercicio/{exercise_id}/run", json={"code": "def solve(): pass"}
+    )
+    assert response.status_code == 400
 
 
 def test_exercise_without_exams_or_exercises_returns_400(

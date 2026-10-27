@@ -211,6 +211,105 @@ export type ChatThreadRead = {
 };
 
 /**
+ * EjercicioRead
+ *
+ * Ejercicio guardado, con sus test cases si es de programacion.
+ */
+export type EjercicioRead = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Tema Id
+     */
+    tema_id: number;
+    /**
+     * Kind
+     */
+    kind: 'programacion' | 'texto';
+    /**
+     * Statement
+     */
+    statement: string;
+    /**
+     * Solution
+     */
+    solution: string;
+    /**
+     * Explanation
+     */
+    explanation: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Test Cases
+     */
+    test_cases?: Array<EjercicioTestCaseRead>;
+};
+
+/**
+ * EjercicioSummary
+ *
+ * Ejercicio para la lista de un tema, sin solucion ni test cases.
+ */
+export type EjercicioSummary = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Tema Id
+     */
+    tema_id: number;
+    /**
+     * Kind
+     */
+    kind: 'programacion' | 'texto';
+    /**
+     * Statement
+     */
+    statement: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Test Case Count
+     */
+    test_case_count?: number;
+};
+
+/**
+ * EjercicioTestCaseRead
+ *
+ * Caso de prueba de un ejercicio de programacion.
+ *
+ * input es un array JSON con los argumentos de solve(); expected, el valor
+ * esperado en JSON.
+ */
+export type EjercicioTestCaseRead = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Position
+     */
+    position: number;
+    /**
+     * Input
+     */
+    input: string;
+    /**
+     * Expected
+     */
+    expected: string;
+};
+
+/**
  * EventoCreate
  *
  * Payload de creacion. Incluye todos los campos.
@@ -628,13 +727,19 @@ export type FlashcardUpdate = {
  *
  * Payload para generar un ejercicio desde los examenes y ejercicios de un
  * tema. El modelo recibe solo los archivos de tipo `examen` o `ejercicio`
- * vinculados a ese tema.
+ * vinculados a ese tema. El ejercicio generado se guarda en la BBDD.
  */
 export type GenerateExerciseRequest = {
     /**
      * Tema Id
      */
     tema_id: number;
+    /**
+     * Kind
+     *
+     * texto puro o problema de programacion
+     */
+    kind?: 'programacion' | 'texto';
     /**
      * Instructions
      *
@@ -656,17 +761,10 @@ export type GenerateExerciseRequest = {
 /**
  * GenerateExerciseResponse
  *
- * Ejercicio propuesto por el modelo y su solucion.
+ * Ejercicio guardado y los archivos que se usaron para generarlo.
  */
 export type GenerateExerciseResponse = {
-    /**
-     * Exercise
-     */
-    exercise: string;
-    /**
-     * Solution
-     */
-    solution: string;
+    exercise: EjercicioRead;
     /**
      * Model
      */
@@ -806,6 +904,38 @@ export type OpenrouterSendResponse = {
 };
 
 /**
+ * RunExerciseRequest
+ *
+ * Codigo Python del usuario para pasar los test cases del ejercicio.
+ */
+export type RunExerciseRequest = {
+    /**
+     * Code
+     */
+    code: string;
+};
+
+/**
+ * RunExerciseResponse
+ *
+ * Resultado global de la ejecucion y el detalle por test case.
+ */
+export type RunExerciseResponse = {
+    /**
+     * Ok
+     */
+    ok: boolean;
+    /**
+     * Results
+     */
+    results?: Array<TestCaseResult>;
+    /**
+     * Error
+     */
+    error?: string | null;
+};
+
+/**
  * TemaCreate
  *
  * Payload de creacion.
@@ -915,6 +1045,34 @@ export type TemaUpdate = {
      * Flashcard Set Ids
      */
     flashcard_set_ids?: Array<number> | null;
+};
+
+/**
+ * TestCaseResult
+ *
+ * Resultado de un test case: si paso, que devolvio y el error si lo hubo.
+ */
+export type TestCaseResult = {
+    /**
+     * Position
+     */
+    position: number;
+    /**
+     * Passed
+     */
+    passed: boolean;
+    /**
+     * Expected
+     */
+    expected?: unknown;
+    /**
+     * Actual
+     */
+    actual?: unknown;
+    /**
+     * Error
+     */
+    error?: string | null;
 };
 
 /**
@@ -2206,3 +2364,127 @@ export type GenerateExerciseStudyExercisePostResponses = {
 };
 
 export type GenerateExerciseStudyExercisePostResponse = GenerateExerciseStudyExercisePostResponses[keyof GenerateExerciseStudyExercisePostResponses];
+
+export type ListEjerciciosEjercicioGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Tema Id
+         *
+         * Solo los ejercicios de un tema
+         */
+        tema_id?: number | null;
+    };
+    url: '/ejercicio';
+};
+
+export type ListEjerciciosEjercicioGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListEjerciciosEjercicioGetError = ListEjerciciosEjercicioGetErrors[keyof ListEjerciciosEjercicioGetErrors];
+
+export type ListEjerciciosEjercicioGetResponses = {
+    /**
+     * Response List Ejercicios Ejercicio Get
+     *
+     * Successful Response
+     */
+    200: Array<EjercicioSummary>;
+};
+
+export type ListEjerciciosEjercicioGetResponse = ListEjerciciosEjercicioGetResponses[keyof ListEjerciciosEjercicioGetResponses];
+
+export type DeleteEjercicioEjercicioEjercicioIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Ejercicio Id
+         */
+        ejercicio_id: number;
+    };
+    query?: never;
+    url: '/ejercicio/{ejercicio_id}';
+};
+
+export type DeleteEjercicioEjercicioEjercicioIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteEjercicioEjercicioEjercicioIdDeleteError = DeleteEjercicioEjercicioEjercicioIdDeleteErrors[keyof DeleteEjercicioEjercicioEjercicioIdDeleteErrors];
+
+export type DeleteEjercicioEjercicioEjercicioIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteEjercicioEjercicioEjercicioIdDeleteResponse = DeleteEjercicioEjercicioEjercicioIdDeleteResponses[keyof DeleteEjercicioEjercicioEjercicioIdDeleteResponses];
+
+export type GetEjercicioEjercicioEjercicioIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Ejercicio Id
+         */
+        ejercicio_id: number;
+    };
+    query?: never;
+    url: '/ejercicio/{ejercicio_id}';
+};
+
+export type GetEjercicioEjercicioEjercicioIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetEjercicioEjercicioEjercicioIdGetError = GetEjercicioEjercicioEjercicioIdGetErrors[keyof GetEjercicioEjercicioEjercicioIdGetErrors];
+
+export type GetEjercicioEjercicioEjercicioIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: EjercicioRead;
+};
+
+export type GetEjercicioEjercicioEjercicioIdGetResponse = GetEjercicioEjercicioEjercicioIdGetResponses[keyof GetEjercicioEjercicioEjercicioIdGetResponses];
+
+export type RunEjercicioEjercicioEjercicioIdRunPostData = {
+    body: RunExerciseRequest;
+    path: {
+        /**
+         * Ejercicio Id
+         */
+        ejercicio_id: number;
+    };
+    query?: never;
+    url: '/ejercicio/{ejercicio_id}/run';
+};
+
+export type RunEjercicioEjercicioEjercicioIdRunPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RunEjercicioEjercicioEjercicioIdRunPostError = RunEjercicioEjercicioEjercicioIdRunPostErrors[keyof RunEjercicioEjercicioEjercicioIdRunPostErrors];
+
+export type RunEjercicioEjercicioEjercicioIdRunPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: RunExerciseResponse;
+};
+
+export type RunEjercicioEjercicioEjercicioIdRunPostResponse = RunEjercicioEjercicioEjercicioIdRunPostResponses[keyof RunEjercicioEjercicioEjercicioIdRunPostResponses];

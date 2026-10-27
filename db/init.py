@@ -164,6 +164,39 @@ SCHEMA: list[str] = [
     CREATE INDEX IF NOT EXISTS idx_chat_message_thread
         ON chat_message(thread_id, id)
     """,
+    # Ejercicio: generado por la IA a partir de los archivos de un tema y
+    # guardado para poder volver a verlo. kind distingue el de texto (enunciado,
+    # respuesta y explicacion) del de programacion (respuesta en Python y test
+    # cases en ejercicio_test_case). Al borrar el tema caen sus ejercicios.
+    """
+    CREATE TABLE IF NOT EXISTS ejercicio (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        tema_id     INTEGER NOT NULL REFERENCES tema(id) ON DELETE CASCADE,
+        kind        TEXT    NOT NULL CHECK (kind IN ('programacion', 'texto')),
+        statement   TEXT    NOT NULL,
+        solution    TEXT    NOT NULL,
+        explanation TEXT    NOT NULL,
+        created_at  TEXT    NOT NULL
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_ejercicio_tema ON ejercicio(tema_id)
+    """,
+    # Test case de un ejercicio de programacion. input es un array JSON con los
+    # argumentos posicionales de solve(); expected es el valor esperado en JSON.
+    """
+    CREATE TABLE IF NOT EXISTS ejercicio_test_case (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        ejercicio_id INTEGER NOT NULL REFERENCES ejercicio(id) ON DELETE CASCADE,
+        position     INTEGER NOT NULL,
+        input        TEXT    NOT NULL,
+        expected     TEXT    NOT NULL
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_ejercicio_test_case_ejercicio
+        ON ejercicio_test_case(ejercicio_id, position)
+    """,
     # Indice de busqueda de texto completo de los archivos. "content" lo
     # rellena la aplicacion al subir (texto plano o extraido del PDF); el
     # trigger de INSERT lo deja vacio y luego se actualiza con un UPDATE.

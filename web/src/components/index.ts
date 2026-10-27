@@ -1,5 +1,6 @@
 export * from "./Calendar";
 export * from "./ChatPanel";
+export * from "./CodeEditor";
 export * from "./FileDropZone";
 export * from "./FileRow";
 export * from "./FlashcardViewer";

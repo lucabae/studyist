@@ -1,0 +1,24 @@
+.env
+venv/
+.venv/
+__pycache__/
+*.pyc
+db/db.sqlite3
+db/temp/*.py
+files/*
+!files/images/.gitkeep
+!files/pdfs/.gitkeep
+!files/texts/.gitkeep
+!files/thumb/.gitkeep
+!files/others/.gitkeep
+web/node_modules/
+web/dist/
+.DS_Store
+
+# Logs de ejecucion (se regeneran al arrancar el servidor).
+log/*.log
+
+# Salida de `tsc -b` / vite que no es fuente.
+*.tsbuildinfo
+web/vite.config.js
+web/vite.config.d.ts

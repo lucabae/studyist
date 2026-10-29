@@ -1,0 +1,10 @@
+{
+  "_help": [
+    "Lista de dispositivos que pueden iniciar sesion. Se compara contra la cabecera User-Agent: basta con que el User-Agent contenga uno de los textos de 'devices' (sin distinguir mayusculas).",
+    "\"*\" significa todos los dispositivos: no se filtra nada. Es el valor por defecto.",
+    "Ejemplo con dos dispositivos: \"devices\": [\"Macintosh\", \"iPhone\"] (el primero cubre el MacBook y el segundo el movil).",
+    "Para ver el User-Agent de tu dispositivo abre https://www.whatismybrowser.com/detect/what-is-my-user-agent/ en ese dispositivo y copia un trozo estable (plataforma y navegador), no la version.",
+    "Este fichero se copia a device.json (ignorado por git) y es de lectura en cada peticion: no hace falta reiniciar el servidor."
+  ],
+  "devices": ["*"]
+}

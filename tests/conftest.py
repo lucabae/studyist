@@ -5,7 +5,9 @@ db/init.py, con /files redirigido a una carpeta temporal y con OpenRouter
 sustituido por mocks asincronos: nada toca la DB real, /files real ni la red.
 """
 
+import hashlib
 import json
+import secrets
 import sys
 from pathlib import Path
 
@@ -22,9 +24,18 @@ if str(REPO_ROOT) not in sys.path:
 import server.views.chat.router as chat_router  # noqa: E402
 from db import init as db_init  # noqa: E402
 from db.db import File, get_session  # noqa: E402
+from server.auth import config as auth_config  # noqa: E402
+from server.auth import audit as auth_audit  # noqa: E402
 from server.main import create_app  # noqa: E402
 from server.scripts import files as files_script  # noqa: E402
 from server.scripts import openrouter  # noqa: E402
+
+# Contrasena del usuario de pruebas y su hash (mismas iteraciones que
+# sh/hash_password.sh, para que el formato sea el real).
+TEST_PASSWORD = "test-password"
+PASSWORD_ITERATIONS = 600_000
+# 32+ bytes para que PyJWT no avise de clave HMAC corta.
+TEST_JWT_SECRET = "test-secret-de-la-suite-de-studyist"
 
 # Respuesta valida del modelo para /flashcard_set/from-files.
 FLASHCARDS_REPLY = json.dumps(
@@ -94,10 +105,49 @@ def files_root(tmp_path, monkeypatch):
 
 
 @pytest.fixture()
-def client(files_root, session_factory):
-    """TestClient con get_session apuntando a la DB temporal.
+def auth_files(tmp_path, monkeypatch):
+    """Redirige la auth a tmp_path y fija JWT_SECRET para los tests.
 
-    Depende de files_root para que el mount /files se cree ya sobre tmp_path.
+    Pasos: escribir password.hash con el hash PBKDF2 de TEST_PASSWORD (mismo
+    formato que sh/hash_password.sh) y device.json con {"devices": ["*"]};
+    monkeypatchear PASSWORD_FILE y DEVICE_FILE de server.auth.config;
+    monkeypatch.setenv("JWT_SECRET", ...); devolver los datos y las rutas.
+    """
+    directory = tmp_path / "auth"
+    directory.mkdir(parents=True, exist_ok=True)
+
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", TEST_PASSWORD.encode("utf-8"), salt, PASSWORD_ITERATIONS
+    )
+    password_file = directory / "password.hash"
+    password_file.write_text(
+        f"pbkdf2_sha256${PASSWORD_ITERATIONS}${salt.hex()}${digest.hex()}\n",
+        encoding="utf-8",
+    )
+
+    device_file = directory / "device.json"
+    device_file.write_text(json.dumps({"devices": ["*"]}), encoding="utf-8")
+
+    monkeypatch.setattr(auth_config, "PASSWORD_FILE", password_file)
+    monkeypatch.setattr(auth_config, "DEVICE_FILE", device_file)
+    monkeypatch.setattr(auth_audit, "LOG_DIR", directory)
+    monkeypatch.setattr(auth_audit, "AUTH_LOG", directory / "auth.log")
+    monkeypatch.setenv("JWT_SECRET", TEST_JWT_SECRET)
+
+    return {
+        "password": TEST_PASSWORD,
+        "password_file": password_file,
+        "device_file": device_file,
+        "auth_log": directory / "auth.log",
+    }
+
+
+def _make_app(session_factory):
+    """Crea la app con get_session apuntando a la DB temporal.
+
+    Pasos: llamar a create_app; sobreescribir la dependencia get_session con
+    sesiones de session_factory (rollback y close al salir); devolver la app.
     """
     def override_get_session():
         session = session_factory()
@@ -111,9 +161,49 @@ def client(files_root, session_factory):
 
     app = create_app()
     app.dependency_overrides[get_session] = override_get_session
+    return app
 
+
+@pytest.fixture()
+def anon_client(files_root, session_factory, auth_files):
+    """TestClient sin Authorization, para los 401 y los tests de /auth.
+
+    Comparte app, DB temporal y ficheros de auth con client; la diferencia es
+    que no hace login ni rellena la cabecera Authorization.
+    """
+    app = _make_app(session_factory)
     test_client = TestClient(app)
     try:
+        yield test_client
+    finally:
+        app.dependency_overrides.clear()
+        test_client.close()
+
+
+@pytest.fixture()
+def client(files_root, session_factory, auth_files, monkeypatch):
+    """TestClient ya autenticado como el unico usuario.
+
+    Depende de files_root para que el mount /files se cree ya sobre tmp_path.
+    Tambien apunta chat_router.SessionLocal a la DB temporal: la generacion del
+    titulo del chat guarda en una sesion propia, fuera de la dependencia.
+    Pasos: crear la app y el TestClient; POST /auth/login con TEST_PASSWORD;
+    dejar el access token en las cabeceras por defecto para que el resto de
+    tests no sepa de auth.
+    """
+    monkeypatch.setattr(chat_router, "SessionLocal", session_factory)
+
+    app = _make_app(session_factory)
+    test_client = TestClient(app)
+    try:
+        response = test_client.post(
+            "/auth/login", json={"password": TEST_PASSWORD}
+        )
+        if response.status_code != 200:
+            raise RuntimeError(f"El login de pruebas falló: {response.text}")
+        test_client.headers.update(
+            {"Authorization": f"Bearer {response.json()['access_token']}"}
+        )
         yield test_client
     finally:
         app.dependency_overrides.clear()
@@ -133,6 +223,8 @@ class FakeOpenRouter:
         self.chat_error: Exception | None = None
         # Si se rellena, send devuelve este texto en vez de FLASHCARDS_REPLY.
         self.send_reply: str | None = None
+        # Titulo que devuelve el prompt "title".
+        self.title_reply: str | None = None
 
     async def send(
         self,
@@ -157,6 +249,10 @@ class FakeOpenRouter:
         )
         if self.send_error is not None:
             raise self.send_error
+        # El prompt "title" lo usa el chat para titular el hilo: devuelve un
+        # titulo corto en vez del JSON de flashcards.
+        if system_prompt == "title":
+            return self.title_reply or "Titulo de prueba", "modelo-test"
         return self.send_reply or FLASHCARDS_REPLY, "modelo-test"
 
     async def send_chat(

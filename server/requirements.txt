@@ -2,6 +2,7 @@ fastapi
 uvicorn
 sqlalchemy
 pydantic
+PyJWT
 python-dotenv
 python-multipart
 httpx

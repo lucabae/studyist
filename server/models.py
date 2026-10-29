@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 Difficulty = Literal["hard", "medium", "easy"]
 Semester = Literal[1, 2]
 EventType = Literal["Examen", "Tarea"]
-ModelType = Literal["pdf", "general"]
+ModelType = Literal["pdf", "general", "exercise"]
 ChatRole = Literal["user", "assistant"]
 FlashcardAmount = Literal["pocas", "medio", "muchas"]
 # Tipo de ejercicio: texto puro o problema de programacion con test cases.
@@ -220,11 +220,18 @@ class FileUpdate(BaseModel):
 class ChatMessageCreate(BaseModel):
     """Payload para enviar un mensaje al hilo.
 
-    El hilo no viaja en el cuerpo: la view lo resuelve con file_id (None para el
-    hilo global de la pagina Principal)."""
+    El hilo se elige por thread_id (una conversacion concreta del historial) o,
+    en la pagina Archivo, por file_id. Para la pagina Principal, sin thread_id
+    ni file_id, la view crea un hilo global nuevo: cada conversacion empieza
+    limpia y el historial se consulta aparte."""
 
     content: str = Field(min_length=1)
+    thread_id: int | None = None
     file_id: int | None = None
+    retry: bool = Field(
+        default=False,
+        description="Reintenta la respuesta del ultimo mensaje de usuario sin duplicarlo",
+    )
     file_mode: FileMode = Field(
         default="text",
         description="Solo aplica al archivo adjunto: texto extraido o PDF original",
@@ -249,15 +256,17 @@ class ChatSendResponse(BaseModel):
 
     user: ChatMessageRead
     assistant: ChatMessageRead
+    title: str | None = None
 
 
 class ChatThreadRead(BaseModel):
-    """Hilo sin sus mensajes, solo con cuantos tiene."""
+    """Hilo sin sus mensajes, solo con su titulo y cuantos tiene."""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     file_id: int | None = None
+    title: str | None = None
     created_at: datetime
     updated_at: datetime
     message_count: int = 0
@@ -507,3 +516,43 @@ class RunExerciseResponse(BaseModel):
     ok: bool
     results: list[TestCaseResult] = Field(default_factory=list)
     error: str | None = None
+
+
+# --- Auth -----------------------------------------------------------------
+
+
+class LoginRequest(BaseModel):
+    """Contrasena local del unico usuario."""
+
+    password: str = Field(min_length=1, max_length=200)
+
+
+class RefreshRequest(BaseModel):
+    """Refresh token con el que se pide un par nuevo."""
+
+    refresh_token: str = Field(min_length=1)
+
+
+class TokenPair(BaseModel):
+    """Par de tokens que devuelven /auth/login y /auth/refresh."""
+
+    access_token: str = Field(
+        description="JWT de acceso; se manda en Authorization: Bearer <token>"
+    )
+    refresh_token: str = Field(
+        description="JWT para pedir un par nuevo en /auth/refresh"
+    )
+    token_type: str = Field(default="bearer", description="Siempre bearer")
+    expires_in: int = Field(description="Segundos que dura el access token")
+    refresh_expires_in: int = Field(description="Segundos que dura el refresh token")
+
+
+class AuthMe(BaseModel):
+    """Datos de la sesion en curso.
+
+    No incluye nada del dispositivo: si no estuviera permitido, el middleware
+    ya habria contestado 401 y no se llegaria aqui.
+    """
+
+    subject: str
+    expires_at: datetime

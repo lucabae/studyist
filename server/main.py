@@ -10,6 +10,8 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from db.db import init_engine
+from server.auth.middleware import AuthMiddleware
+from server.auth.router import router as auth_router
 from server.scripts import files as files_script
 from server.views.asignatura.router import router as asignatura_router
 from server.views.chat.router import router as chat_router
@@ -128,15 +130,17 @@ def create_app() -> FastAPI:
     """Construye la aplicacion.
 
     Pasos: instanciar FastAPI con title, version y lifespan; anadir el
-    middleware que convierte los 500 en JSON y, por fuera, el de CORS con
-    ALLOWED_ORIGINS, allow_credentials a False y allow_methods/headers a "*";
-    incluir los nueve routers; montar /files como
+    middleware de auth y, por fuera, el que convierte los 500 en JSON y el de
+    CORS con ALLOWED_ORIGINS, allow_credentials a False y
+    allow_methods/headers a "*"; incluir los once routers; montar /files como
     estatico (despues de los routers para no tapar GET /files ni
     GET /files/{file_id}); devolver la app.
     """
     app = FastAPI(title="Studyist API", version="0.1.0", lifespan=lifespan)
-    # El orden importa: el ultimo middleware anadido es el mas externo, asi que
-    # CORS envuelve al capturador y sus cabeceras llegan tambien a los 500.
+    # El orden importa: el ultimo middleware anadido es el mas externo. Auth va
+    # por dentro de CORS (los 401 llevan cabeceras CORS) y del capturador de
+    # 500 (un fallo inesperado de auth se ve como 500 JSON y no como traceback).
+    app.add_middleware(AuthMiddleware)
     app.add_middleware(UnhandledErrorMiddleware)
     app.add_middleware(
         CORSMiddleware,
@@ -146,6 +150,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     for router in (
+        auth_router,
         evento_router,
         asignatura_router,
         chat_router,

@@ -15,6 +15,11 @@ web/node_modules/
 web/dist/
 .DS_Store
 
+# Auth: ficheros locales del unico usuario (hash de la contrasena y allowlist
+# de dispositivos). Los ejemplos si se versionan.
+server/auth/password.hash
+server/auth/device.json
+
 # Logs de ejecucion (se regeneran al arrancar el servidor).
 log/*.log
 

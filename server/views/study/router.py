@@ -155,6 +155,7 @@ async def generate_exercise(
         payload.model_override,
         payload.file_mode,
         system_prompt=prompt,
+        model_type="exercise",
     )
     try:
         parsed = _parse_exercise(raw, require_test_cases=is_code)
@@ -166,6 +167,7 @@ async def generate_exercise(
             payload.model_override,
             payload.file_mode,
             system_prompt=prompt,
+            model_type="exercise",
         )
         try:
             parsed = _parse_exercise(raw, require_test_cases=is_code)
@@ -381,18 +383,19 @@ async def _ask_model(
     model_override: str | None,
     file_mode: FileMode = "text",
     system_prompt: str = "flashcards",
+    model_type: str = "pdf",
 ) -> tuple[str, str]:
     """Pide contenido al modelo y traduce sus errores a HTTPException.
 
     Pasos: llamar a openrouter.send con el system_prompt indicado (por defecto
-    "flashcards"), model_type "pdf" y file_mode; un ValueError o
-    FileNotFoundError se convierte en 400; un RuntimeError, en 502; devolver
-    (texto crudo, modelo usado).
+    "flashcards"), el model_type indicado ("pdf" por defecto, "exercise" para
+    los ejercicios) y file_mode; un ValueError o FileNotFoundError se convierte
+    en 400; un RuntimeError, en 502; devolver (texto crudo, modelo usado).
     """
     try:
         raw, model = await openrouter.send(
             message=message,
-            model_type="pdf",
+            model_type=model_type,
             system_prompt=system_prompt,
             files=paths,
             file_mode=file_mode,

@@ -211,10 +211,10 @@ class File(Base):
 class ChatThread(Base):
     """Hilo de conversacion interno con la IA.
 
-    Hay un hilo global (file_id NULL, pagina Principal) y uno por archivo
-    (pagina Archivo). El UNIQUE de un hilo por archivo vive en el SQL como
-    indice parcial (db/init.py), porque con unique=True en la columna no se
-    podrian tener varios hilos globales.
+    Hay varios hilos globales (file_id NULL, pagina Principal, uno por
+    conversacion del historial) y uno por archivo (pagina Archivo). El UNIQUE de
+    un hilo por archivo vive en el SQL como indice parcial (db/init.py).
+    "title" lo genera la IA con el primer mensaje del hilo.
     """
 
     __tablename__ = "chat_thread"
@@ -223,6 +223,7 @@ class ChatThread(Base):
     file_id: Mapped[int | None] = mapped_column(
         ForeignKey("file.id", ondelete="CASCADE")
     )
+    title: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(MadridDateTime, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(MadridDateTime, nullable=False)
 

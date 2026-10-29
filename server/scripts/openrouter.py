@@ -34,8 +34,10 @@ APP_TITLE = "Studyist"
 
 # Mapa model_type -> identificador de modelo de OpenRouter.
 MODEL_BY_TYPE: dict[str, str] = {
-    "pdf": "deepseek/deepseek-v4.1-flash",
-    "general": "deepseek/deepseek-v4.1-flash",
+    "pdf": "openai/gpt-6-luna",
+    "general": "openai/gpt-6-luna",
+    "exercise": "openai/gpt-6-luna",
+    "title": "openai/gpt-6-luna",
 }
 
 

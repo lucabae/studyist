@@ -128,12 +128,15 @@ SCHEMA: list[str] = [
         back_img_id       INTEGER REFERENCES file(id) ON DELETE SET NULL
     )
     """,
-    # Chat interno: un hilo global (file_id NULL) y uno por archivo. El UNIQUE
-    # es parcial para permitir varios hilos sin archivo y solo uno por archivo.
+    # Chat interno: varios hilos globales (file_id NULL, pagina Principal) y uno
+    # por archivo. El UNIQUE es parcial: solo un hilo por archivo, pero tantos
+    # hilos globales como conversaciones haya en el historial. "title" lo genera
+    # la IA con el primer mensaje del hilo.
     """
     CREATE TABLE IF NOT EXISTS chat_thread (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
         file_id    INTEGER REFERENCES file(id) ON DELETE CASCADE,
+        title      TEXT,
         created_at TEXT    NOT NULL,
         updated_at TEXT    NOT NULL
     )
@@ -142,11 +145,10 @@ SCHEMA: list[str] = [
     CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_thread_file
         ON chat_thread(file_id) WHERE file_id IS NOT NULL
     """,
-    # Un solo hilo global: indice unico parcial sobre la expresion constante
-    # para que dos peticiones simultaneas no creen dos hilos con file_id NULL.
+    # Historial de la pagina Principal: los globales se listan por actividad.
     """
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_thread_global
-        ON chat_thread((file_id IS NULL)) WHERE file_id IS NULL
+    CREATE INDEX IF NOT EXISTS idx_chat_thread_global_updated
+        ON chat_thread(updated_at DESC) WHERE file_id IS NULL
     """,
     # Mensajes del hilo: role solo admite user/assistant. "model" queda NULL en
     # los mensajes del usuario.

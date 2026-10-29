@@ -382,6 +382,7 @@ def test_exercise_uses_only_exams_and_exercises(
 
     call = fake_openrouter.calls[-1]
     assert call["system_prompt"] == "exercises"
+    assert call["model_type"] == "exercise"
     assert "Backtracking" in call["message"]
     assert "con matrices de adyacencia" in call["message"]
     assert not any("tema_3.pdf" in path for path in call["files"])

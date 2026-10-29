@@ -25,7 +25,7 @@ def _sse_events(body: str) -> list[tuple[str, dict]]:
 
 
 def test_stream_saves_both_messages_and_emits_deltas(
-    client: TestClient, session_factory, monkeypatch
+    client: TestClient, session_factory, monkeypatch, fake_openrouter
 ) -> None:
     """El stream emite meta/delta/done y guarda la respuesta completa."""
     # El guardado final usa una sesion propia: en tests apunta a la DB temporal.
@@ -61,12 +61,89 @@ def test_stream_saves_both_messages_and_emits_deltas(
     assert done["assistant"]["content"] == "Hola, mundo"
     assert done["assistant"]["model"] == "modelo-test"
     assert done["user"]["content"] == "saluda"
+    assert done["title"] == "Titulo de prueba"
+    # El meta trae el hilo creado para que el cliente lo reutilice.
+    assert events[0][1]["thread_id"] == done["user"]["thread_id"]
 
     history = client.get("/chat/messages").json()
     assert [(item["role"], item["content"]) for item in history] == [
         ("user", "saluda"),
         ("assistant", "Hola, mundo"),
     ]
+
+
+def test_stream_reuses_thread_from_meta(
+    client: TestClient, session_factory, monkeypatch, fake_openrouter
+) -> None:
+    """Con thread_id el segundo stream cae en el mismo hilo y no lo retitula."""
+    monkeypatch.setattr(chat_router, "SessionLocal", session_factory)
+
+    async def fake_open_stream(
+        messages, model_type="general", files=None, file_mode="text", model_override=None
+    ):
+        async def chunks():
+            yield "ok"
+
+        return ChatStream(model="modelo-test", chunks=chunks())
+
+    monkeypatch.setattr(chat_router, "open_chat_stream", fake_open_stream)
+
+    first = client.post("/chat/messages/stream", json={"content": "uno"})
+    thread_id = _sse_events(first.text)[0][1]["thread_id"]
+
+    second = client.post(
+        "/chat/messages/stream",
+        json={"content": "dos", "thread_id": thread_id},
+    )
+    events = _sse_events(second.text)
+    assert events[0][1]["thread_id"] == thread_id
+    assert events[-1][1]["title"] is None
+
+    assert len(client.get("/chat/threads").json()) == 1
+    assert len(client.get("/chat/messages", params={"thread_id": thread_id}).json()) == 4
+
+
+def test_stream_retry_does_not_duplicate_user_message(
+    client: TestClient, session_factory, monkeypatch, fake_openrouter
+) -> None:
+    """retry=True responde al ultimo mensaje guardado sin volver a insertarlo."""
+    monkeypatch.setattr(chat_router, "SessionLocal", session_factory)
+
+    state = {"fail": True}
+
+    async def fake_open_stream(
+        messages, model_type="general", files=None, file_mode="text", model_override=None
+    ):
+        async def chunks():
+            yield "parcial"
+            if state["fail"]:
+                raise RuntimeError("modelo caido")
+            yield " completa"
+
+        return ChatStream(model="modelo-test", chunks=chunks())
+
+    monkeypatch.setattr(chat_router, "open_chat_stream", fake_open_stream)
+
+    first = client.post(
+        "/chat/messages/stream",
+        json={"content": "pregunta"},
+    )
+    thread_id = _sse_events(first.text)[0][1]["thread_id"]
+    assert [name for name, _ in _sse_events(first.text)][-1] == "error"
+
+    state["fail"] = False
+    retry = client.post(
+        "/chat/messages/stream",
+        json={"content": "pregunta", "thread_id": thread_id, "retry": True},
+    )
+    assert retry.status_code == 200
+    assert [name for name, _ in _sse_events(retry.text)][-1] == "done"
+
+    roles = [
+        item["role"]
+        for item in client.get("/chat/messages", params={"thread_id": thread_id}).json()
+    ]
+    assert roles == ["user", "assistant"]
 
 
 def test_stream_error_keeps_user_message(

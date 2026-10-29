@@ -30,14 +30,15 @@ def create_file(
     """Sube un archivo.
 
     Pasos: leer el contenido del UploadFile; si supera
-    files.MAX_UPLOAD_BYTES, devolver 413 antes de escribir nada; calcular el
-    hash con files.compute_hash y consultar si ya existe una fila con ese hash;
-    si existe, devolver 409 incluyendo el id del file existente; si no, llamar
-    a files.save para clasificarlo, escribirlo y generar el thumbnail; insertar
-    la fila con el kind elegido por el usuario (por defecto "otros"); flush para
-    tener el id (el trigger file_fts_insert ya creo la fila del indice con
-    content vacio); rellenar ese content con files.extract_text (texto plano o
-    texto del PDF); commit; devolver.
+    files.MAX_UPLOAD_BYTES, devolver 413 antes de escribir nada; exigir nombre;
+    validar con files.validate_upload que es una imagen raster o un PDF (415 si
+    no); calcular el hash con files.compute_hash y consultar si ya existe una
+    fila con ese hash; si existe, devolver 409 incluyendo el id del file
+    existente; si no, llamar a files.save para clasificarlo, escribirlo y
+    generar el thumbnail; insertar la fila con el kind elegido por el usuario
+    (por defecto "otros"); flush para tener el id (el trigger file_fts_insert ya
+    creo la fila del indice con content vacio); rellenar ese content con
+    files.extract_text (texto del PDF); commit; devolver.
 
     El 409 lleva el id del archivo que ya existe para que el frontend pueda
     reutilizarlo (por ejemplo, enlazarlo a un tema) sin resubir nada.
@@ -53,6 +54,14 @@ def create_file(
             ),
         )
 
+    if not upload.filename:
+        raise HTTPException(status_code=400, detail="El archivo no tiene nombre")
+
+    try:
+        files.validate_upload(upload.filename, content)
+    except files.UploadRejected as exc:
+        raise HTTPException(status_code=415, detail=str(exc))
+
     digest = files.compute_hash(content)
     existing = db.scalar(select(File).where(File.hash == digest))
     if existing is not None:
@@ -63,9 +72,6 @@ def create_file(
                 "file_id": existing.id,
             },
         )
-
-    if not upload.filename:
-        raise HTTPException(status_code=400, detail="El archivo no tiene nombre")
 
     metadata = files.save(upload.filename, content)
     row = File(**metadata, kind=kind)

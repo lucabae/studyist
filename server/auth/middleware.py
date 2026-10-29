@@ -12,15 +12,11 @@ from fastapi.responses import JSONResponse
 from server.auth.config import is_device_allowed
 from server.auth.tokens import AuthError, decode_token
 
-# Rutas que no piden token: login, refresh, la documentacion y el redirect de
-# OAuth de Swagger.
+# Rutas que no piden token: login y refresh. La documentacion (docs, redoc y
+# openapi.json) esta desactivada en create_app, asi que no hay nada mas publico.
 PUBLIC_PATHS = {
     "/auth/login",
     "/auth/refresh",
-    "/docs",
-    "/redoc",
-    "/openapi.json",
-    "/docs/oauth2-redirect",
 }
 
 # Prefijo del mount estatico. Un <img> o un <a download> no pueden mandar la
@@ -46,6 +42,26 @@ def _query_token(scope) -> str | None:  # noqa: ANN001 - ASGI scope
 
     token = values[0].strip()
     return token or None
+
+
+def _strip_query_token(scope) -> None:  # noqa: ANN001 - ASGI scope
+    """Quita ?token= del query string antes de que lo vea el log de accesos.
+
+    Un `?token=<access>` queda en el access log de uvicorn (que registra el
+    path con su query) y en cualquier traza. La autenticacion ya se ha resuelto
+    cuando se llama a esta funcion, asi que el resto de la peticion no necesita
+    el token: se elimina dejando los demas parametros intactos.
+    """
+    raw = scope.get("query_string") or b""
+    if b"token=" not in raw:
+        return
+
+    kept = [
+        part
+        for part in raw.split(b"&")
+        if part and part.split(b"=", 1)[0].lower() != b"token"
+    ]
+    scope["query_string"] = b"&".join(kept)
 
 
 async def _deny(status_code: int, message: str, scope, receive, send) -> None:  # noqa: ANN001
@@ -105,6 +121,12 @@ class AuthMiddleware:
         ):
             # Imagenes y descargas: el navegador no puede mandar cabeceras.
             token = _query_token(scope)
+
+        # El token nunca debe quedar en el access log, llegue por query o no.
+        if method in ("GET", "HEAD") and scope.get("path", "").startswith(
+            STATIC_FILES_PREFIX
+        ):
+            _strip_query_token(scope)
 
         if not token:
             await _deny(401, "Falta el token de acceso.", scope, receive, send)

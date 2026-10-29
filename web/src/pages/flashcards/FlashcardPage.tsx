@@ -368,7 +368,7 @@ export default function FlashcardPage() {
 
             <div className="mt-2">
               <FileDropZone
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
                 multiple={false}
                 disabled={imageBusy}
                 hint={`Se añadirá ${

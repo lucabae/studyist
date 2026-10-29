@@ -28,13 +28,14 @@ Se guardarán files (localmente), que podrán ser referenciados por eventos y fl
 
 Para los PDF's e imagenes, se generarán imagenes de thumbnail muy low res (100x60px), guardados en /files/thumb.
 
-Tope de subida: 30 MB por archivo (`MAX_UPLOAD_BYTES` en `server/scripts/files.py`). Por encima se devuelve 413 antes de escribir nada.
+Tope de subida: 30 MB por archivo (`MAX_UPLOAD_BYTES` en `server/scripts/files.py`). Por encima se devuelve 413 antes de escribir nada. Solo se admiten imágenes raster y PDF (se valida el contenido, no solo la extensión); cualquier otro tipo, incluido SVG o HTML, devuelve 415.
 
 Al borrar un archivo, sus referencias en `Flashcard.Front img` y `Flashcard.Back img` pasan a NULL (ON DELETE SET NULL): la tarjeta se conserva, solo pierde la imagen. Esto es intencionado, no se borran flashcards.
+El mount `/files` responde con `X-Content-Type-Options: nosniff` y `Content-Security-Policy: default-src 'none'; sandbox`, para que un HTML o SVG antiguo no ejecute nada en el origen de la API.
 ### FTS5
 Búsqueda de texto completo sobre archivos:
 - Tabla virtual `file_fts` (FTS5) con las columnas `name` y `content`.
-- `content` se rellena al subir: texto plano para `text/*`, texto extraído con `pypdfium2` para PDFs, vacío para imágenes y otros tipos (esos solo se buscan por nombre).
+- `content` se rellena al subir: texto extraído con `pypdfium2` para PDFs, vacío para imágenes (esas solo se buscan por nombre). Los `text/*` que ya estuvieran guardados siguen indexados.
 - Triggers de INSERT/UPDATE/DELETE sobre `file` mantienen el índice sincronizado.
 - `GET /files?q=` busca en `file_fts` y se puede combinar con `type` y `tema_id`.
 - Si la extracción de texto de un PDF falla, se loggea en `script.error.log`, se indexa solo el nombre y la subida sigue adelante.
@@ -55,9 +56,10 @@ App de **un solo usuario**: no hay tabla de usuarios, ni registro, ni roles. Sol
 
 **Protección de rutas**
 - `AuthMiddleware` (ASGI, por dentro de CORS y del capturador de 500) exige `Authorization: Bearer <access>` en **todas** las rutas, incluido el mount `/files`, para que los archivos no queden públicos.
-- Rutas públicas: `/auth/login`, `/auth/refresh`, `/docs`, `/redoc`, `/openapi.json`, `/docs/oauth2-redirect` y cualquier `OPTIONS` (preflight CORS).
+- Rutas públicas: `/auth/login`, `/auth/refresh` y cualquier `OPTIONS` (preflight CORS). La documentación (`/docs`, `/redoc`, `/openapi.json`) está desactivada.
+- **Límite de intentos:** 10 fallos por IP en 15 minutos en login y refresh; a partir de ahí se responde `429` con `Retry-After`. Un login correcto reinicia el contador.
 - Un refresh token usado como access → 401. Token firmado con otro secreto o caducado → 401 con `WWW-Authenticate: Bearer`.
-- **Ficheros estáticos:** un `<img>` o un `<a download>` no pueden mandar la cabecera `Authorization`, así que para `GET`/`HEAD` bajo `/files/` el middleware acepta también `?token=<access>`. Un refresh en la query, o un `POST` con `?token=`, siguen dando 401. En el frontend lo añade `withAccessToken()` (`lib/api.ts`), que usan `fileUrl()`/`thumbnailUrl()` de `pages/files/fileUtils.ts` y la página de flashcard.
+- **Ficheros estáticos:** un `<img>` o un `<a download>` no pueden mandar la cabecera `Authorization`, así que para `GET`/`HEAD` bajo `/files/` el middleware acepta también `?token=<access>`. Un refresh en la query, o un `POST` con `?token=`, siguen dando 401. En el frontend lo añade `withAccessToken()` (`lib/api.ts`), que usan `fileUrl()`/`thumbnailUrl()` de `pages/files/fileUtils.ts` y la página de flashcard. El middleware elimina el `token` de la query antes de que lo registre el access log.
 
 **Dispositivos**
 - `server/auth/device.json` (ignorado por git) decide desde qué dispositivos se puede entrar. Se compara contra el `User-Agent` por subcadena, sin distinguir mayúsculas.
@@ -115,6 +117,7 @@ Esta es global, contiene todos los flashcard set para que puedas gestionarlos, b
 ## Server
 Fast API con CORS habilitado.
 Puerto 8080 y 8443 (!TODO).
+Cuerpo máximo por petición: 32 MB (`BodySizeLimitMiddleware` en `server/main.py`, 413 por encima). Swagger, ReDoc y `openapi.json` están desactivados.
 
 ## Dotenv
 El dotenv contiene esto:
@@ -162,7 +165,7 @@ Cada categoría de view aquí se lleva su propia carpeta, y su propio endpoint p
     - `GET /tema?asignatura_id=`: temas de una asignatura (lista plana, orden natural por nombre, con `parent_id` y `child_ids`; el árbol se monta en el cliente).
     - Jerarquía: `parent_id` opcional en crear y modificar. 404 si el padre no existe, 400 si es de otra asignatura, si es el propio tema o si es un descendiente (ciclo). `parent_id: null` devuelve el tema al primer nivel.
 - Files
-    - Crear: Clasifica el archivo con su MIME Type y lo guarda en el Path que toque, llama a la función de crear thumb, y finalmente con toda esa información crea la fila de la BBDD. Acepta `kind` (`teoria` / `examen` / `ejercicio` / `otros`, por defecto `otros`), el tipo de documento que elige el usuario.
+    - Crear: Valida que el archivo sea una imagen raster o un PDF (415 si no), lo clasifica con su MIME Type y lo guarda en el Path que toque, llama a la función de crear thumb, y finalmente con toda esa información crea la fila de la BBDD. Acepta `kind` (`teoria` / `examen` / `ejercicio` / `otros`, por defecto `otros`), el tipo de documento que elige el usuario.
     - Modificar (nombre y tipo de documento)
     - Borrar (borra (con try) el archivo, y también la linea de la DB, y todas sus referencias).
     - Get (todo) con path relativo
@@ -197,7 +200,7 @@ Cada categoría de view aquí se lleva su propia carpeta, y su propio endpoint p
     - `GET /ejercicio?tema_id=`: lista de ejercicios guardados (resumen, del más reciente al más antiguo).
     - `GET /ejercicio/{id}`: ejercicio completo con sus test cases.
     - `DELETE /ejercicio/{id}`: borra el ejercicio y sus test cases en cascada.
-    - `POST /ejercicio/{id}/run`: body `{code}`. Solo ejercicios de programación (400 en los de texto). Ejecuta `solve(*args)` contra los test cases en un subproceso `python -I` con timeout de 5 s y devuelve `ok`, el detalle por caso (`position`, `passed`, `expected`, `actual`, `error`) y un `error` global si el código no llega a correr. El código del usuario se ejecuta en local: no es una sandbox de red ni de ficheros.
+    - `POST /ejercicio/{id}/run`: **desactivado** (`EXERCISE_RUN_ENABLED = False` en `views/ejercicio/router.py`); responde 403. Cuando se reactive: body `{code}`, solo ejercicios de programación (400 en los de texto). Ejecuta `solve(*args)` contra los test cases en un subproceso `python -I` con timeout de 5 s y devuelve `ok`, el detalle por caso (`position`, `passed`, `expected`, `actual`, `error`) y un `error` global si el código no llega a correr. El código del usuario se ejecuta en local: no es una sandbox de red ni de ficheros.
 - Chat
     - Historial: `GET /chat/threads` lista las conversaciones globales de la Principal (más reciente primero) con `title` y `message_count`. Cada envío sin `thread_id` ni `file_id` crea un hilo global nuevo: entrar en la Principal abre siempre una conversación vacía y las anteriores se recuperan desde este historial.
     - Título: lo genera la IA con el prompt `title` (`prompts/title.txt`) **solo con el primer mensaje** del hilo. Se guarda en `chat_thread.title`; si el modelo falla se usa el primer mensaje recortado. El resto de mensajes no vuelve a generarlo.

@@ -240,3 +240,41 @@ def test_login_attempts_are_logged(
     assert "ua=" in contenido
     assert auth_files["password"] not in contenido
     assert "no-es-la-contrasena" not in contenido
+
+
+def test_docs_and_openapi_are_closed(anon_client: TestClient, client: TestClient) -> None:
+    """La documentación no es pública y con sesión tampoco existe."""
+    assert anon_client.get("/docs").status_code == 401
+    assert anon_client.get("/redoc").status_code == 401
+    assert anon_client.get("/openapi.json").status_code == 401
+
+    assert client.get("/docs").status_code == 404
+    assert client.get("/redoc").status_code == 404
+    assert client.get("/openapi.json").status_code == 404
+
+
+def test_too_many_failed_logins_returns_429(
+    anon_client: TestClient, auth_files, monkeypatch
+) -> None:
+    """Tras N fallos por IP, incluso la contraseña correcta da 429."""
+    from server.auth import router as auth_router
+
+    monkeypatch.setattr(auth_router, "LOGIN_MAX_FAILURES", 2)
+    monkeypatch.setattr(auth_router, "_failures", {})
+
+    assert _login(anon_client, "mala").status_code == 401
+    assert _login(anon_client, "mala").status_code == 401
+
+    blocked = _login(anon_client, auth_files["password"])
+    assert blocked.status_code == 429
+    assert blocked.headers["Retry-After"].isdigit()
+    assert "Demasiados intentos" in blocked.json()["detail"]
+
+
+def test_query_token_is_not_left_for_the_access_log() -> None:
+    """El middleware borra ?token= del scope antes de que se registre."""
+    from server.auth import middleware
+
+    scope = {"query_string": b"token=abc123&v=2"}
+    middleware._strip_query_token(scope)
+    assert scope["query_string"] == b"v=2"

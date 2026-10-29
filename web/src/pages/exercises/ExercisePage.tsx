@@ -15,6 +15,14 @@ import { ConfirmDialog } from "../flashcards/ConfirmDialog";
 
 type Status = "loading" | "ready" | "notfound" | "error";
 
+/**
+ * La ejecución de código está desactivada en el backend
+ * (`EXERCISE_RUN_ENABLED = False` en server/views/ejercicio/router.py).
+ * El editor y el botón se ocultan para no ofrecer una acción que da 403.
+ */
+const EXERCISE_RUN_ENABLED = false;
+
+
 /** Args JSON del test case -> "solve(1, 2)" para pintarlo legible. */
 function callLabel(input: string): string {
   try {
@@ -246,10 +254,16 @@ export default function ExercisePage() {
               <p className="text-[11px] uppercase tracking-wide text-onyx-inkFaint">
                 Tu solución
               </p>
-              <Button onClick={() => void run()} disabled={running}>
-                {running && <Spinner size="sm" label="Ejecutando" />}
-                {running ? "Ejecutando…" : "Ejecutar tests"}
-              </Button>
+              {EXERCISE_RUN_ENABLED ? (
+                <Button onClick={() => void run()} disabled={running}>
+                  {running && <Spinner size="sm" label="Ejecutando" />}
+                  {running ? "Ejecutando…" : "Ejecutar tests"}
+                </Button>
+              ) : (
+                <span className="text-[12px] text-onyx-inkFaint">
+                  Ejecución desactivada
+                </span>
+              )}
             </div>
 
             <div className="mt-3">
@@ -263,10 +277,9 @@ export default function ExercisePage() {
             </div>
 
             <p className="mt-2 text-[12px] leading-relaxed text-onyx-inkFaint">
-              Define una función <code className="font-mono">solve</code> con los
-              argumentos de cada test case. Sin <code className="font-mono">input()</code>{" "}
-              ni <code className="font-mono">print()</code>: el resultado es lo que
-              devuelve la función.
+              {EXERCISE_RUN_ENABLED
+                ? "Define una función solve con los argumentos de cada test case. Sin input() ni print(): el resultado es lo que devuelve la función."
+                : "La ejecución de tests está desactivada. Puedes escribir tu solución y compararla con la que se muestra abajo."}
             </p>
 
             {runError && (

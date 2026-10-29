@@ -28,6 +28,12 @@ interface QueuedFile {
   kind: FileDocKind;
 }
 
+/** El backend solo guarda imagenes raster y PDF (nada de HTML/SVG/texto). */
+function isAllowedUpload(file: File): boolean {
+  if (file.type === "application/pdf") return true;
+  return file.type.startsWith("image/") && file.type !== "image/svg+xml";
+}
+
 /**
  * Devuelve la cola y una funcion para encolarla. `onBatchDone` se llama una
  * vez por tanda, solo si al menos un archivo se subio bien.
@@ -106,7 +112,13 @@ export function useFileUpload(onBatchDone: () => void) {
     (files: File[], kind: FileDocKind = "otros") => {
       if (files.length === 0) return;
 
-      const entries = files.map((file) => {
+      const allowed = files.filter(isAllowedUpload);
+      if (allowed.length < files.length) {
+        toast("Solo se admiten imágenes o PDF.", "error");
+      }
+      if (allowed.length === 0) return;
+
+      const entries = allowed.map((file) => {
         counter.current += 1;
         return { key: `subida-${counter.current}`, file, kind };
       });

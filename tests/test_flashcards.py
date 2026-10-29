@@ -388,10 +388,10 @@ def test_exercise_uses_only_exams_and_exercises(
     assert not any("tema_3.pdf" in path for path in call["files"])
 
 
-def test_programming_exercise_stores_test_cases_and_runs_code(
+def test_programming_exercise_stores_test_cases_and_run_is_disabled(
     client, make_file, fake_openrouter
 ):
-    """Un ejercicio de programación guarda sus test cases y corrige el código."""
+    """Un ejercicio de programación guarda sus test cases; run da 403."""
     import json
 
     examen = make_file(name="2024_enero.pdf", content=b"examen de bucles")
@@ -427,21 +427,14 @@ def test_programming_exercise_stores_test_cases_and_runs_code(
         f"/ejercicio/{exercise['id']}/run",
         json={"code": "def solve(a, b):\n    return a + b"},
     )
-    assert correct.status_code == 200, correct.text
-    assert correct.json()["ok"] is True
-    assert [result["passed"] for result in correct.json()["results"]] == [True, True]
+    assert correct.status_code == 403
+    assert correct.json()["detail"] == "La ejecución de código está desactivada."
 
     wrong = client.post(
         f"/ejercicio/{exercise['id']}/run",
         json={"code": "def solve(a, b):\n    return a - b"},
     )
-    assert wrong.status_code == 200, wrong.text
-    body = wrong.json()
-    assert body["ok"] is False
-    assert body["results"][0]["passed"] is False
-    assert body["results"][0]["actual"] == -1
-    assert body["results"][0]["expected"] == 3
-    assert body["results"][1]["passed"] is False
+    assert wrong.status_code == 403
 
     listed = client.get("/ejercicio", params={"tema_id": tema_id}).json()
     assert listed[0]["test_case_count"] == 2
@@ -452,7 +445,7 @@ def test_programming_exercise_stores_test_cases_and_runs_code(
 
 
 def test_run_rejects_text_exercises(client, make_file, fake_openrouter):
-    """Un ejercicio de texto no se puede ejecutar."""
+    """Con run desactivado tambien los ejercicios de texto dan 403."""
     import json
 
     examen = make_file(name="2024_enero.pdf", content=b"examen")
@@ -468,7 +461,7 @@ def test_run_rejects_text_exercises(client, make_file, fake_openrouter):
     response = client.post(
         f"/ejercicio/{exercise_id}/run", json={"code": "def solve(): pass"}
     )
-    assert response.status_code == 400
+    assert response.status_code == 403
 
 
 def test_exercise_without_exams_or_exercises_returns_400(

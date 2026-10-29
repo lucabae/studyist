@@ -389,8 +389,9 @@ async def _ask_model(
 
     Pasos: llamar a openrouter.send con el system_prompt indicado (por defecto
     "flashcards"), el model_type indicado ("pdf" por defecto, "exercise" para
-    los ejercicios) y file_mode; un ValueError o FileNotFoundError se convierte
-    en 400; un RuntimeError, en 502; devolver (texto crudo, modelo usado).
+    los ejercicios) y file_mode; los errores se loggean enteros y al cliente le
+    llega un 400 generico si el payload no vale o un 502 si falla el proveedor;
+    devolver (texto crudo, modelo usado).
     """
     try:
         raw, model = await openrouter.send(
@@ -401,10 +402,14 @@ async def _ask_model(
             file_mode=file_mode,
             model_override=model_override,
         )
-    except (ValueError, FileNotFoundError) as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    except RuntimeError as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+    except (ValueError, FileNotFoundError):
+        logger.exception("Petición inválida a OpenRouter")
+        raise HTTPException(status_code=400, detail="Petición no válida para el modelo.")
+    except RuntimeError:
+        logger.exception("OpenRouter falló")
+        raise HTTPException(
+            status_code=502, detail="No se pudo contactar con el modelo."
+        )
 
     return raw, model
 

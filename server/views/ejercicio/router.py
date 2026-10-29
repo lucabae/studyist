@@ -21,6 +21,12 @@ from server.scripts import python_runner
 
 router = APIRouter(prefix="/ejercicio", tags=["ejercicio"])
 
+# La ejecucion de codigo arbitrario esta desactivada: el runner solo aisla
+# imports y tiempo, y cualquier fallo de auth o XSS daria ejecucion de codigo
+# con acceso a .env, la DB y la red. Se deja el codigo y el flag para volver a
+# activarlo cuando haya una sandbox de verdad.
+EXERCISE_RUN_ENABLED = False
+
 
 @router.get("", response_model=list[EjercicioSummary])
 def list_ejercicios(
@@ -81,8 +87,9 @@ def run_ejercicio(
 ) -> RunExerciseResponse:
     """Ejecuta el codigo del usuario contra los test cases del ejercicio.
 
-    Pasos: buscar el ejercicio (404); 400 si no es de programacion; montar la
-    lista de casos con input/expected tal cual estan guardados; llamar a
+    Pasos: si EXERCISE_RUN_ENABLED es False, devolver 403 sin ejecutar nada;
+    buscar el ejercicio (404); 400 si no es de programacion; montar la lista de
+    casos con input/expected tal cual estan guardados; llamar a
     python_runner.run_tests (subproceso aislado con timeout); devolver ok,
     detalle por caso y error global. Un caso con input mal guardado se traduce
     a 400.
@@ -90,6 +97,12 @@ def run_ejercicio(
     El codigo es arbitrario: se ejecuta en la maquina local. Ver el aviso del
     runner.
     """
+    if not EXERCISE_RUN_ENABLED:
+        raise HTTPException(
+            status_code=403,
+            detail="La ejecución de código está desactivada.",
+        )
+
     ejercicio = db.get(Ejercicio, ejercicio_id)
     if ejercicio is None:
         raise HTTPException(

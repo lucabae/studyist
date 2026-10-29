@@ -285,10 +285,10 @@ export function GenerateSetModal({ open, onClose, setId, onCreated }: GenerateSe
 
         <FileDropZone
           onFiles={(incoming) => void uploadFiles(incoming)}
-          accept=".pdf,.txt,.md,text/*,application/pdf"
+          accept=".pdf,application/pdf"
           multiple
           disabled={generating || uploading}
-          hint="PDF o texto. Los PDF se pueden mandar como texto extraído o tal cual."
+          hint="PDF. Los PDF se pueden mandar como texto extraído o tal cual."
         />
 
         <div className="flex min-w-0 flex-col gap-1.5">

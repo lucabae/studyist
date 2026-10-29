@@ -5,10 +5,13 @@ images, pdfs, texts u others (fallback).
 """
 
 import hashlib
+import io
 import logging
 import mimetypes
 import re
 from pathlib import Path
+
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +32,43 @@ SUBDIR_BY_MIME: dict[str, str] = {
     "application/pdf": "pdfs",
     "text": "texts",
 }
+
+# Tipos aceptados en una subida. Solo imagenes raster y PDF: un .html o un .svg
+# servido desde el mount estatico ejecutaria JavaScript en el origen de la API.
+ALLOWED_UPLOAD_LABEL = "Solo se admiten imágenes o PDF."
+
+
+class UploadRejected(ValueError):
+    """El contenido subido no es una imagen valida ni un PDF."""
+
+
+def validate_upload(filename: str, content: bytes) -> str:
+    """Comprueba que el contenido es una imagen raster o un PDF.
+
+    Pasos: detectar el MIME por extension con _detect_mime; si es un PDF,
+    exigir que el contenido empiece por "%PDF-"; si es una imagen (y no SVG),
+    abrirla con Pillow y llamar a verify() para descartar un .html renombrado;
+    en cualquier otro caso lanzar UploadRejected con un mensaje generico.
+
+    Devuelve el MIME detectado. El mensaje no incluye el nombre ni el contenido
+    del archivo: el cliente solo necesita saber que el tipo no vale.
+    """
+    mime_type = _detect_mime(filename)
+
+    if mime_type == "application/pdf":
+        if content.lstrip().startswith(b"%PDF-"):
+            return mime_type
+        raise UploadRejected(ALLOWED_UPLOAD_LABEL)
+
+    if mime_type.startswith("image/") and mime_type != "image/svg+xml":
+        try:
+            with Image.open(io.BytesIO(content)) as image:
+                image.verify()
+        except Exception as exc:
+            raise UploadRejected(ALLOWED_UPLOAD_LABEL) from exc
+        return mime_type
+
+    raise UploadRejected(ALLOWED_UPLOAD_LABEL)
 
 
 def save(upload_filename: str, content: bytes) -> dict:

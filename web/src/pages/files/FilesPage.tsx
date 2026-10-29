@@ -225,7 +225,8 @@ export default function FilesPage() {
         </div>
         <FileDropZone
           onFiles={(incoming) => upload.enqueue(incoming, uploadKind)}
-          hint={`Se guardarán como ${FILE_DOC_KIND_LABELS[uploadKind].toLowerCase()} · hasta 30 MB por archivo · también puedes pegarlos`}
+          accept="image/*,application/pdf"
+          hint={`Se guardarán como ${FILE_DOC_KIND_LABELS[uploadKind].toLowerCase()} · imágenes o PDF · hasta 30 MB por archivo · también puedes pegarlos`}
         />
       </div>
 

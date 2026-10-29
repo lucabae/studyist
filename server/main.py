@@ -32,7 +32,97 @@ ALLOWED_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
 LOG_DIR = Path(__file__).resolve().parents[1] / "log"
 ERROR_LOG = LOG_DIR / "backend_server.error.log"
 
+# Tope del cuerpo de una peticion. Deja margen sobre los 30 MB de /files para
+# las cabeceras multipart; el middleware lo comprueba antes de que el endpoint
+# lea el cuerpo (Content-Length) y tambien mientras llega (chunked).
+MAX_REQUEST_BYTES = 32 * 1024 * 1024
+
 logger = logging.getLogger(__name__)
+
+
+class _BodyTooLarge(Exception):
+    """El cliente ha enviado mas bytes de los permitidos."""
+
+
+class BodySizeLimitMiddleware:
+    """Corta las peticiones cuyo cuerpo supera MAX_REQUEST_BYTES con un 413.
+
+    Va por dentro de CORS (para que el navegador pueda leer el 413) y por fuera
+    de la app. Si el cuerpo ya se estaba enviando cuando se detecta el exceso,
+    no se puede reescribir la respuesta: se relanza.
+    """
+
+    def __init__(self, app) -> None:  # noqa: ANN001 - ASGI app
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:  # noqa: ANN001
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        headers = {
+            key.decode("latin-1").lower(): value.decode("latin-1")
+            for key, value in scope.get("headers", [])
+        }
+        declared = headers.get("content-length")
+        if declared is not None:
+            try:
+                if int(declared) > MAX_REQUEST_BYTES:
+                    await _payload_too_large(scope, receive, send)
+                    return
+            except ValueError:
+                pass
+
+        received = 0
+        started = False
+
+        async def counting_receive():
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > MAX_REQUEST_BYTES:
+                    raise _BodyTooLarge
+            return message
+
+        async def tracking_send(message) -> None:  # noqa: ANN001
+            nonlocal started
+            if message["type"] == "http.response.start":
+                started = True
+            await send(message)
+
+        try:
+            await self.app(scope, counting_receive, tracking_send)
+        except _BodyTooLarge:
+            if started:
+                raise
+            await _payload_too_large(scope, receive, send)
+
+
+async def _payload_too_large(scope, receive, send) -> None:  # noqa: ANN001
+    """Responde 413 con un mensaje generico, sin detalles del tamano."""
+    await JSONResponse(
+        status_code=413,
+        content={"detail": "La petición es demasiado grande."},
+    )(scope, receive, send)
+
+
+class SafeStaticFiles(StaticFiles):
+    """Mount estatico sin ejecucion de nada en el origen de la API.
+
+    Aunque las subidas nuevas solo admiten imagenes y PDF, en disco pueden
+    quedar ficheros antiguos (html, svg, txt). `nosniff` evita que el navegador
+    adivine el tipo y la CSP `sandbox` deja inertes los scripts de cualquier
+    HTML o SVG que se sirviera desde aqui.
+    """
+
+    async def get_response(self, path, scope):  # noqa: ANN001
+        response = await super().get_response(path, scope)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Content-Security-Policy"] = "default-src 'none'; sandbox"
+        return response
+
+
 
 
 def _configure_logging() -> None:
@@ -136,12 +226,23 @@ def create_app() -> FastAPI:
     estatico (despues de los routers para no tapar GET /files ni
     GET /files/{file_id}); devolver la app.
     """
-    app = FastAPI(title="Studyist API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(
+        title="Studyist API",
+        version="0.1.0",
+        lifespan=lifespan,
+        # La API solo la consume el frontend local: sin Swagger, ReDoc ni
+        # openapi.json publicos (api_gen.sh sigue generando el JSON llamando a
+        # app.openapi()).
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
     # El orden importa: el ultimo middleware anadido es el mas externo. Auth va
     # por dentro de CORS (los 401 llevan cabeceras CORS) y del capturador de
     # 500 (un fallo inesperado de auth se ve como 500 JSON y no como traceback).
     app.add_middleware(AuthMiddleware)
     app.add_middleware(UnhandledErrorMiddleware)
+    app.add_middleware(BodySizeLimitMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=ALLOWED_ORIGINS,
@@ -170,7 +271,7 @@ def create_app() -> FastAPI:
     files_script.FILES_ROOT.mkdir(parents=True, exist_ok=True)
     app.mount(
         "/files",
-        StaticFiles(directory=files_script.FILES_ROOT),
+        SafeStaticFiles(directory=files_script.FILES_ROOT),
         name="files",
     )
     return app

@@ -31,8 +31,8 @@ const t = {
 const railIcons = [
   "M3.5 10.5 10 4l6.5 6.5v6a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1z", // inicio
   "M4 5.5h5l2 2h5v7.5H4z", // archivos
-  "M4 5.5h12v11H4zM7 3.5v4M13 3.5v4", // asignaturas
-  "M6 3.5v13M6 6h9a1 1 0 0 1 1 1v7.5", // eventos
+  "M10 4.2 3.6 7.2 10 10.2l6.4-3zM6 9.6v3.3c0 1.3 1.8 2.1 4 2.1s4-.8 4-2.1V9.6", // asignaturas
+  "M4 5.5h12v11H4zM7 3.5v4M13 3.5v4", // eventos
 ];
 
 const chips = ["Plan de repaso", "Resumir apuntes", "Crear flashcards"];

@@ -58,12 +58,15 @@ const onyxTheme = EditorView.theme(
       maxHeight: "420px",
       overflow: "auto",
     },
+    // El padding horizontal va en `.cm-content`, no en `.cm-line`: el padding
+    // de la linea desplaza el texto pero el caret nativo se dibuja en el borde
+    // de la linea, asi que cursor y texto quedaban desalineados.
     ".cm-content": {
-      padding: "10px 0",
+      padding: "10px 12px",
       caretColor: "#ffffff",
       minHeight: "180px",
     },
-    ".cm-line": { padding: "0 12px" },
+    ".cm-line": { padding: "0" },
     ".cm-gutters": {
       backgroundColor: "transparent",
       color: "#7a7a7a",

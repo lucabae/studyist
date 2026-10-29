@@ -119,7 +119,7 @@ export default function SubjectsPage() {
             description="Crea la primera para empezar a ordenar temas, apuntes y flashcards por curso."
             icon={
               <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-                <path d="M4 5.5h12v11H4zM7 3.5v4M13 3.5v4" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M10 4.2 3.6 7.2 10 10.2l6.4-3zM6 9.6v3.3c0 1.3 1.8 2.1 4 2.1s4-.8 4-2.1V9.6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             }
             action={<Button onClick={openCreate}>Crear asignatura</Button>}

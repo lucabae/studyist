@@ -75,18 +75,24 @@ class BodySizeLimitMiddleware:
 
         received = 0
         started = False
+        exceeded = False
 
         async def counting_receive():
-            nonlocal received
+            nonlocal received, exceeded
             message = await receive()
             if message["type"] == "http.request":
                 received += len(message.get("body", b""))
                 if received > MAX_REQUEST_BYTES:
+                    exceeded = True
                     raise _BodyTooLarge
             return message
 
         async def tracking_send(message) -> None:  # noqa: ANN001
             nonlocal started
+            # Si nos hemos pasado, se descarta lo que responda la app (FastAPI
+            # convierte el corte en un 400 al parsear): el cliente ve el 413.
+            if exceeded:
+                return
             if message["type"] == "http.response.start":
                 started = True
             await send(message)
@@ -94,8 +100,9 @@ class BodySizeLimitMiddleware:
         try:
             await self.app(scope, counting_receive, tracking_send)
         except _BodyTooLarge:
-            if started:
-                raise
+            pass
+
+        if exceeded and not started:
             await _payload_too_large(scope, receive, send)
 
 
@@ -119,7 +126,12 @@ class SafeStaticFiles(StaticFiles):
     async def get_response(self, path, scope):  # noqa: ANN001
         response = await super().get_response(path, scope)
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["Content-Security-Policy"] = "default-src 'none'; sandbox"
+        content_type = response.headers.get("content-type", "")
+        # Los visores de PDF no ejecutan scripts y la CSP puede impedir que el
+        # navegador los abra; se deja el PDF intacto y se blindan el resto
+        # (imagenes incluidas, por si queda algun SVG antiguo).
+        if not content_type.startswith("application/pdf"):
+            response.headers["Content-Security-Policy"] = "default-src 'none'; sandbox"
         return response
 
 
@@ -188,6 +200,10 @@ class UnhandledErrorMiddleware:
 
         try:
             await self.app(scope, receive, send_wrapper)
+        except _BodyTooLarge:
+            # Lo gestiona BodySizeLimitMiddleware (que va por fuera) para
+            # responder 413 en vez de convertir el corte en un 500.
+            raise
         except Exception:
             logger.exception(
                 "Error no controlado en %s %s", scope.get("method"), scope.get("path")

@@ -31,7 +31,10 @@ interface QueuedFile {
 /** El backend solo guarda imagenes raster y PDF (nada de HTML/SVG/texto). */
 function isAllowedUpload(file: File): boolean {
   if (file.type === "application/pdf") return true;
-  return file.type.startsWith("image/") && file.type !== "image/svg+xml";
+  if (file.type.startsWith("image/") && file.type !== "image/svg+xml") return true;
+  // Algunos navegadores no dan MIME; se acepta por extension y el backend
+  // valida el contenido de todas formas.
+  return /\.(png|jpe?g|gif|webp|bmp|tiff?|avif|heic|pdf)$/i.test(file.name);
 }
 
 /**

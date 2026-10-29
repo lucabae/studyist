@@ -185,3 +185,33 @@ def test_static_files_are_served_with_nosniff_and_sandbox(client):
     assert served.status_code == 200
     assert served.headers["x-content-type-options"] == "nosniff"
     assert "sandbox" in served.headers["content-security-policy"]
+
+
+def test_static_pdf_keeps_working_without_the_sandbox_csp(client):
+    """La CSP de sandbox no se pone en PDF, para no romper el visor."""
+    uploaded = _upload(
+        client, "examen.pdf", b"%PDF-1.4\n%%EOF\n", "application/pdf"
+    ).json()
+
+    served = client.get(f"/files/{uploaded['path']}")
+    assert served.status_code == 200
+    assert served.headers["x-content-type-options"] == "nosniff"
+    assert "content-security-policy" not in served.headers
+
+
+def test_chunked_body_without_content_length_also_returns_413(client, monkeypatch):
+    """Sin Content-Length el middleware cuenta los trozos y corta igual."""
+    from server import main as server_main
+
+    monkeypatch.setattr(server_main, "MAX_REQUEST_BYTES", 512)
+
+    def chunks():
+        yield b"x" * 1024
+
+    response = client.post(
+        "/asignatura",
+        content=chunks(),
+        headers={"content-type": "application/json"},
+    )
+    assert response.status_code == 413
+    assert response.json()["detail"] == "La petición es demasiado grande."

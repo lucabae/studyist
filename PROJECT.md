@@ -31,7 +31,7 @@ Para los PDF's e imagenes, se generarán imagenes de thumbnail muy low res (100x
 Tope de subida: 30 MB por archivo (`MAX_UPLOAD_BYTES` en `server/scripts/files.py`). Por encima se devuelve 413 antes de escribir nada. Solo se admiten imágenes raster y PDF (se valida el contenido, no solo la extensión); cualquier otro tipo, incluido SVG o HTML, devuelve 415.
 
 Al borrar un archivo, sus referencias en `Flashcard.Front img` y `Flashcard.Back img` pasan a NULL (ON DELETE SET NULL): la tarjeta se conserva, solo pierde la imagen. Esto es intencionado, no se borran flashcards.
-El mount `/files` responde con `X-Content-Type-Options: nosniff` y `Content-Security-Policy: default-src 'none'; sandbox`, para que un HTML o SVG antiguo no ejecute nada en el origen de la API.
+El mount `/files` responde con `X-Content-Type-Options: nosniff` y, salvo en PDF, `Content-Security-Policy: default-src 'none'; sandbox`, para que un HTML o SVG antiguo no ejecute nada en el origen de la API.
 ### FTS5
 Búsqueda de texto completo sobre archivos:
 - Tabla virtual `file_fts` (FTS5) con las columnas `name` y `content`.

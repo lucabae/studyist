@@ -19,8 +19,9 @@ import { Spinner } from "../../components/ui/Spinner";
 import { Textarea } from "../../components/ui/Textarea";
 import { useToast } from "../../components/ui/Toast";
 import { PageHeader } from "../../layout/PageHeader";
-import { API_BASE_URL, apiErrorMessage } from "../../lib/api";
+import { apiErrorMessage } from "../../lib/api";
 import { formatDateTime, formatRelative } from "../../lib/format";
+import { fileUrl as filePublicUrl } from "../files/fileUtils";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { DIFFICULTY_LABELS } from "./ReviewSession";
 
@@ -32,9 +33,9 @@ function parseId(value: string | undefined): number | null {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-/** URL publica del archivo (el backend monta /files como estatico). */
+/** URL del archivo en el mount estatico, con el token de sesion. */
 function fileUrl(file: FileRead): string {
-  return `${API_BASE_URL}/files/${file.path}`;
+  return filePublicUrl(file.path);
 }
 
 export default function FlashcardPage() {

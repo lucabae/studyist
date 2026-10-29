@@ -85,6 +85,25 @@ export type AsignaturaUpdate = {
 };
 
 /**
+ * AuthMe
+ *
+ * Datos de la sesion en curso.
+ *
+ * No incluye nada del dispositivo: si no estuviera permitido, el middleware
+ * ya habria contestado 401 y no se llegaria aqui.
+ */
+export type AuthMe = {
+    /**
+     * Subject
+     */
+    subject: string;
+    /**
+     * Expires At
+     */
+    expires_at: string;
+};
+
+/**
  * Body_create_file_files_post
  */
 export type BodyCreateFileFilesPost = {
@@ -120,8 +139,10 @@ export type ChatItem = {
  *
  * Payload para enviar un mensaje al hilo.
  *
- * El hilo no viaja en el cuerpo: la view lo resuelve con file_id (None para el
- * hilo global de la pagina Principal).
+ * El hilo se elige por thread_id (una conversacion concreta del historial) o,
+ * en la pagina Archivo, por file_id. Para la pagina Principal, sin thread_id
+ * ni file_id, la view crea un hilo global nuevo: cada conversacion empieza
+ * limpia y el historial se consulta aparte.
  */
 export type ChatMessageCreate = {
     /**
@@ -129,9 +150,19 @@ export type ChatMessageCreate = {
      */
     content: string;
     /**
+     * Thread Id
+     */
+    thread_id?: number | null;
+    /**
      * File Id
      */
     file_id?: number | null;
+    /**
+     * Retry
+     *
+     * Reintenta la respuesta del ultimo mensaje de usuario sin duplicarlo
+     */
+    retry?: boolean;
     /**
      * File Mode
      *
@@ -180,12 +211,16 @@ export type ChatMessageRead = {
 export type ChatSendResponse = {
     user: ChatMessageRead;
     assistant: ChatMessageRead;
+    /**
+     * Title
+     */
+    title?: string | null;
 };
 
 /**
  * ChatThreadRead
  *
- * Hilo sin sus mensajes, solo con cuantos tiene.
+ * Hilo sin sus mensajes, solo con su titulo y cuantos tiene.
  */
 export type ChatThreadRead = {
     /**
@@ -196,6 +231,10 @@ export type ChatThreadRead = {
      * File Id
      */
     file_id?: number | null;
+    /**
+     * Title
+     */
+    title?: string | null;
     /**
      * Created At
      */
@@ -850,6 +889,18 @@ export type HttpValidationError = {
 };
 
 /**
+ * LoginRequest
+ *
+ * Contrasena local del unico usuario.
+ */
+export type LoginRequest = {
+    /**
+     * Password
+     */
+    password: string;
+};
+
+/**
  * OpenrouterSendRequest
  *
  * Payload para enviar un mensaje a un modelo.
@@ -862,7 +913,7 @@ export type OpenrouterSendRequest = {
     /**
      * Model Type
      */
-    model_type: 'pdf' | 'general';
+    model_type: 'pdf' | 'general' | 'exercise';
     /**
      * System Prompt
      *
@@ -901,6 +952,18 @@ export type OpenrouterSendResponse = {
      * Model
      */
     model: string;
+};
+
+/**
+ * RefreshRequest
+ *
+ * Refresh token con el que se pide un par nuevo.
+ */
+export type RefreshRequest = {
+    /**
+     * Refresh Token
+     */
+    refresh_token: string;
 };
 
 /**
@@ -1076,6 +1139,44 @@ export type TestCaseResult = {
 };
 
 /**
+ * TokenPair
+ *
+ * Par de tokens que devuelven /auth/login y /auth/refresh.
+ */
+export type TokenPair = {
+    /**
+     * Access Token
+     *
+     * JWT de acceso; se manda en Authorization: Bearer <token>
+     */
+    access_token: string;
+    /**
+     * Refresh Token
+     *
+     * JWT para pedir un par nuevo en /auth/refresh
+     */
+    refresh_token: string;
+    /**
+     * Token Type
+     *
+     * Siempre bearer
+     */
+    token_type?: string;
+    /**
+     * Expires In
+     *
+     * Segundos que dura el access token
+     */
+    expires_in: number;
+    /**
+     * Refresh Expires In
+     *
+     * Segundos que dura el refresh token
+     */
+    refresh_expires_in: number;
+};
+
+/**
  * ValidationError
  */
 export type ValidationError = {
@@ -1102,6 +1203,88 @@ export type ValidationError = {
         [key: string]: unknown;
     };
 };
+
+export type LoginAuthLoginPostData = {
+    body: LoginRequest;
+    path?: never;
+    query?: never;
+    url: '/auth/login';
+};
+
+export type LoginAuthLoginPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LoginAuthLoginPostError = LoginAuthLoginPostErrors[keyof LoginAuthLoginPostErrors];
+
+export type LoginAuthLoginPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: TokenPair;
+};
+
+export type LoginAuthLoginPostResponse = LoginAuthLoginPostResponses[keyof LoginAuthLoginPostResponses];
+
+export type RefreshAuthRefreshPostData = {
+    body: RefreshRequest;
+    path?: never;
+    query?: never;
+    url: '/auth/refresh';
+};
+
+export type RefreshAuthRefreshPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RefreshAuthRefreshPostError = RefreshAuthRefreshPostErrors[keyof RefreshAuthRefreshPostErrors];
+
+export type RefreshAuthRefreshPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: TokenPair;
+};
+
+export type RefreshAuthRefreshPostResponse = RefreshAuthRefreshPostResponses[keyof RefreshAuthRefreshPostResponses];
+
+export type MeAuthMeGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/auth/me';
+};
+
+export type MeAuthMeGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: AuthMe;
+};
+
+export type MeAuthMeGetResponse = MeAuthMeGetResponses[keyof MeAuthMeGetResponses];
+
+export type LogoutAuthLogoutPostData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/auth/logout';
+};
+
+export type LogoutAuthLogoutPostResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type LogoutAuthLogoutPostResponse = LogoutAuthLogoutPostResponses[keyof LogoutAuthLogoutPostResponses];
 
 export type ListEventosEventoGetData = {
     body?: never;
@@ -1391,14 +1574,68 @@ export type UpdateAsignaturaAsignaturaAsignaturaIdPutResponses = {
 
 export type UpdateAsignaturaAsignaturaAsignaturaIdPutResponse = UpdateAsignaturaAsignaturaAsignaturaIdPutResponses[keyof UpdateAsignaturaAsignaturaAsignaturaIdPutResponses];
 
+export type ListThreadsChatThreadsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/chat/threads';
+};
+
+export type ListThreadsChatThreadsGetResponses = {
+    /**
+     * Response List Threads Chat Threads Get
+     *
+     * Successful Response
+     */
+    200: Array<ChatThreadRead>;
+};
+
+export type ListThreadsChatThreadsGetResponse = ListThreadsChatThreadsGetResponses[keyof ListThreadsChatThreadsGetResponses];
+
+export type DeleteThreadChatThreadsThreadIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Thread Id
+         */
+        thread_id: number;
+    };
+    query?: never;
+    url: '/chat/threads/{thread_id}';
+};
+
+export type DeleteThreadChatThreadsThreadIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteThreadChatThreadsThreadIdDeleteError = DeleteThreadChatThreadsThreadIdDeleteErrors[keyof DeleteThreadChatThreadsThreadIdDeleteErrors];
+
+export type DeleteThreadChatThreadsThreadIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteThreadChatThreadsThreadIdDeleteResponse = DeleteThreadChatThreadsThreadIdDeleteResponses[keyof DeleteThreadChatThreadsThreadIdDeleteResponses];
+
 export type GetThreadChatThreadGetData = {
     body?: never;
     path?: never;
     query?: {
         /**
+         * Thread Id
+         *
+         * Id del hilo; omitido devuelve el global mas reciente
+         */
+        thread_id?: number | null;
+        /**
          * File Id
          *
-         * Id del archivo; omitido devuelve el hilo global
+         * Id del archivo; omitido usa el hilo global
          */
         file_id?: number | null;
     };
@@ -1451,6 +1688,12 @@ export type ClearMessagesChatMessagesDeleteData = {
     path?: never;
     query?: {
         /**
+         * Thread Id
+         *
+         * Id del hilo; omitido usa file_id o el global mas reciente
+         */
+        thread_id?: number | null;
+        /**
          * File Id
          *
          * Id del archivo; omitido usa el hilo global
@@ -1482,6 +1725,12 @@ export type ListMessagesChatMessagesGetData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * Thread Id
+         *
+         * Id del hilo; omitido usa file_id o el global mas reciente
+         */
+        thread_id?: number | null;
         /**
          * File Id
          *

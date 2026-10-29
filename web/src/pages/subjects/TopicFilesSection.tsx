@@ -6,8 +6,9 @@ import {
   type TemaRead,
 } from "../../api/generated";
 import { Button, FileRow, useToast } from "../../components";
-import { apiErrorMessage, API_BASE_URL } from "../../lib/api";
+import { apiErrorMessage } from "../../lib/api";
 import { formatBytes } from "../../lib/format";
+import { thumbnailUrl } from "../files/fileUtils";
 import { EntityPickerModal } from "./EntityPickerModal";
 import { TopicSectionCard } from "./TopicSectionCard";
 
@@ -81,12 +82,7 @@ export function TopicFilesSection({ topic, files, onSaved }: TopicFilesSectionPr
                       name: file.name,
                       type: file.type,
                       size: file.size,
-                      thumbnail: file.thumbnail
-                        ? `${API_BASE_URL}/files/${file.thumbnail
-                            .split("/")
-                            .map(encodeURIComponent)
-                            .join("/")}`
-                        : null,
+                      thumbnail: thumbnailUrl(file.thumbnail),
                     }}
                     onOpen={() => navigate(`/archivos/${file.id}`)}
                   />

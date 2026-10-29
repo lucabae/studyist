@@ -5,7 +5,7 @@
  * text/plain...), asi que aqui se traduce a las familias que pinta la UI y a
  * las URLs publicas del mount /files.
  */
-import { API_BASE_URL } from "../../lib/api";
+import { API_BASE_URL, withAccessToken } from "../../lib/api";
 
 /** Familia de archivo: decide el preview y el filtro. */
 export type FileKind = "image" | "pdf" | "text" | "other";
@@ -77,11 +77,13 @@ export function shortFileType(type: string): string {
   return type || "archivo";
 }
 
-/** URL publica de un path relativo a /files (o de un thumbnail). */
+/** URL pública de un path relativo a /files (o de un thumbnail). */
 export function fileUrl(relativePath: string): string {
   // Se codifica segmento a segmento para no romper las barras del path.
   const encoded = relativePath.split("/").map(encodeURIComponent).join("/");
-  return `${API_BASE_URL}/files/${encoded}`;
+  // El mount estático exige sesión y `<img>` no manda cabeceras: token en la
+  // query (ver withAccessToken).
+  return withAccessToken(`${API_BASE_URL}/files/${encoded}`);
 }
 
 /** URL del thumbnail, o null si el archivo no tiene. */

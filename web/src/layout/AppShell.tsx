@@ -1,4 +1,6 @@
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import logoMark from "../../media/logo_no_text.png";
+import { useAuth } from "../auth/AuthContext";
 import { cn } from "../lib/cn";
 
 interface NavItem {
@@ -22,12 +24,13 @@ const NAV_ITEMS: NavItem[] = [
   {
     to: "/asignaturas",
     label: "Asignaturas",
-    path: "M4 5.5h12v11H4zM7 3.5v4M13 3.5v4",
+    // Birrete: el icono de calendario se ha movido a Eventos, que es su sitio.
+    path: "M10 4.2 3.6 7.2 10 10.2l6.4-3zM6 9.6v3.3c0 1.3 1.8 2.1 4 2.1s4-.8 4-2.1V9.6",
   },
   {
     to: "/eventos",
     label: "Eventos",
-    path: "M6 3.5v13M6 6h9a1 1 0 0 1 1 1v7.5",
+    path: "M4 5.5h12v11H4zM7 3.5v4M13 3.5v4",
   },
   {
     to: "/flashcards",
@@ -35,6 +38,10 @@ const NAV_ITEMS: NavItem[] = [
     path: "M6 5.5h8a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 14V7A1.5 1.5 0 0 1 6 5.5zM7.5 4h7",
   },
 ];
+
+/** Puerta con la flecha de salida: cerrar sesión. */
+const LOGOUT_PATH =
+  "M8 4.5H5.5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1H8M11.5 7l3 3-3 3M14.5 10h-6";
 
 function NavIcon({ path }: { path: string }) {
   return (
@@ -56,6 +63,14 @@ function NavIcon({ path }: { path: string }) {
  * El contenido de cada ruta entra por <Outlet />.
  */
 export function AppShell() {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  async function handleLogout() {
+    await logout();
+    navigate("/login", { replace: true });
+  }
+
   return (
     <div className="flex min-h-[100dvh] bg-onyx-bg text-onyx-ink">
       <a
@@ -72,9 +87,13 @@ export function AppShell() {
         <Link
           to="/"
           aria-label="Studyist, ir al inicio"
-          className="focus-ring mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-white text-[13px] font-semibold text-black"
+          className="focus-ring mb-3 flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg"
         >
-          S
+          <img
+            src={logoMark}
+            alt=""
+            className="h-8 w-8 scale-[1.6] object-contain"
+          />
         </Link>
 
         {NAV_ITEMS.map((item) => (
@@ -96,6 +115,16 @@ export function AppShell() {
             <NavIcon path={item.path} />
           </NavLink>
         ))}
+
+        <button
+          type="button"
+          onClick={() => void handleLogout()}
+          aria-label="Cerrar sesión"
+          title="Cerrar sesión"
+          className="focus-ring mt-auto flex h-9 w-9 items-center justify-center rounded-lg text-onyx-inkFaint transition-colors duration-150 hover:bg-[#2a2a2a] hover:text-onyx-inkMuted"
+        >
+          <NavIcon path={LOGOUT_PATH} />
+        </button>
       </nav>
 
       <main id="contenido" className="min-w-0 flex-1 pb-14 sm:pb-0">
@@ -126,6 +155,19 @@ export function AppShell() {
             </span>
           </NavLink>
         ))}
+
+        <button
+          type="button"
+          onClick={() => void handleLogout()}
+          aria-label="Cerrar sesión"
+          title="Cerrar sesión"
+          className="focus-ring flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-onyx-inkFaint transition-colors duration-150 hover:text-onyx-inkMuted"
+        >
+          <NavIcon path={LOGOUT_PATH} />
+          <span className="max-w-full truncate px-0.5 text-[10px] leading-none">
+            Salir
+          </span>
+        </button>
       </nav>
     </div>
   );

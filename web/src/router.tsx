@@ -1,10 +1,13 @@
 /**
  * Rutas de la aplicacion.
  *
- * Todas las paginas cuelgan de AppShell (rail en escritorio, barra inferior en
+ * /login queda fuera del layout: no tiene raíl. El resto cuelga de
+ * RequireAuth y, dentro, de AppShell (rail en escritorio, barra inferior en
  * movil). Las rutas siguen la estructura de PROJECT.md.
  */
 import { Route, Routes } from "react-router-dom";
+import LoginPage from "./auth/LoginPage";
+import RequireAuth from "./auth/RequireAuth";
 import AppShell from "./layout/AppShell";
 import ExercisePage from "./pages/exercises/ExercisePage";
 import EventsPage from "./pages/events/EventsPage";
@@ -39,22 +42,26 @@ function NotFoundPage() {
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route element={<AppShell />}>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/archivos" element={<FilesPage />} />
-        <Route path="/archivos/:id" element={<FilePage />} />
-        <Route path="/asignaturas" element={<SubjectsPage />} />
-        <Route path="/asignaturas/:id" element={<SubjectPage />} />
-        <Route path="/temas/:id" element={<TopicPage />} />
-        <Route path="/ejercicios/:id" element={<ExercisePage />} />
-        <Route path="/eventos" element={<EventsPage />} />
-        <Route path="/flashcards" element={<FlashcardSetsPage />} />
-        <Route path="/flashcards/:setId" element={<FlashcardSetPage />} />
-        <Route
-          path="/flashcards/:setId/cards/:cardId"
-          element={<FlashcardPage />}
-        />
-        <Route path="*" element={<NotFoundPage />} />
+      <Route path="/login" element={<LoginPage />} />
+
+      <Route element={<RequireAuth />}>
+        <Route element={<AppShell />}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/archivos" element={<FilesPage />} />
+          <Route path="/archivos/:id" element={<FilePage />} />
+          <Route path="/asignaturas" element={<SubjectsPage />} />
+          <Route path="/asignaturas/:id" element={<SubjectPage />} />
+          <Route path="/temas/:id" element={<TopicPage />} />
+          <Route path="/ejercicios/:id" element={<ExercisePage />} />
+          <Route path="/eventos" element={<EventsPage />} />
+          <Route path="/flashcards" element={<FlashcardSetsPage />} />
+          <Route path="/flashcards/:setId" element={<FlashcardSetPage />} />
+          <Route
+            path="/flashcards/:setId/cards/:cardId"
+            element={<FlashcardPage />}
+          />
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
       </Route>
     </Routes>
   );

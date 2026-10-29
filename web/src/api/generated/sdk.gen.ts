@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddFlashcardFlashcardSetSetIdFlashcardsPostData, AddFlashcardFlashcardSetSetIdFlashcardsPostErrors, AddFlashcardFlashcardSetSetIdFlashcardsPostResponses, ClearMessagesChatMessagesDeleteData, ClearMessagesChatMessagesDeleteErrors, ClearMessagesChatMessagesDeleteResponses, CreateAsignaturaAsignaturaPostData, CreateAsignaturaAsignaturaPostErrors, CreateAsignaturaAsignaturaPostResponses, CreateEventoEventoPostData, CreateEventoEventoPostErrors, CreateEventoEventoPostResponses, CreateFileFilesPostData, CreateFileFilesPostErrors, CreateFileFilesPostResponses, CreateFlashcardFlashcardPostData, CreateFlashcardFlashcardPostErrors, CreateFlashcardFlashcardPostResponses, CreateFlashcardSetFlashcardSetPostData, CreateFlashcardSetFlashcardSetPostErrors, CreateFlashcardSetFlashcardSetPostResponses, CreateFlashcardSetFromFilesFlashcardSetFromFilesPostData, CreateFlashcardSetFromFilesFlashcardSetFromFilesPostErrors, CreateFlashcardSetFromFilesFlashcardSetFromFilesPostResponses, CreateTemaTemaPostData, CreateTemaTemaPostErrors, CreateTemaTemaPostResponses, DeleteAsignaturaAsignaturaAsignaturaIdDeleteData, DeleteAsignaturaAsignaturaAsignaturaIdDeleteErrors, DeleteAsignaturaAsignaturaAsignaturaIdDeleteResponses, DeleteEjercicioEjercicioEjercicioIdDeleteData, DeleteEjercicioEjercicioEjercicioIdDeleteErrors, DeleteEjercicioEjercicioEjercicioIdDeleteResponses, DeleteEventoEventoEventoIdDeleteData, DeleteEventoEventoEventoIdDeleteErrors, DeleteEventoEventoEventoIdDeleteResponses, DeleteFileFilesFileIdDeleteData, DeleteFileFilesFileIdDeleteErrors, DeleteFileFilesFileIdDeleteResponses, DeleteFlashcardFlashcardFlashcardIdDeleteData, DeleteFlashcardFlashcardFlashcardIdDeleteErrors, DeleteFlashcardFlashcardFlashcardIdDeleteResponses, DeleteFlashcardSetFlashcardSetSetIdDeleteData, DeleteFlashcardSetFlashcardSetSetIdDeleteErrors, DeleteFlashcardSetFlashcardSetSetIdDeleteResponses, DeleteTemaTemaTemaIdDeleteData, DeleteTemaTemaTemaIdDeleteErrors, DeleteTemaTemaTemaIdDeleteResponses, GenerateExerciseStudyExercisePostData, GenerateExerciseStudyExercisePostErrors, GenerateExerciseStudyExercisePostResponses, GenerateFlashcardsStudyFlashcardsPostData, GenerateFlashcardsStudyFlashcardsPostErrors, GenerateFlashcardsStudyFlashcardsPostResponses, GetAsignaturaAsignaturaAsignaturaIdGetData, GetAsignaturaAsignaturaAsignaturaIdGetErrors, GetAsignaturaAsignaturaAsignaturaIdGetResponses, GetEjercicioEjercicioEjercicioIdGetData, GetEjercicioEjercicioEjercicioIdGetErrors, GetEjercicioEjercicioEjercicioIdGetResponses, GetEventoEventoEventoIdGetData, GetEventoEventoEventoIdGetErrors, GetEventoEventoEventoIdGetResponses, GetFileFilesFileIdGetData, GetFileFilesFileIdGetErrors, GetFileFilesFileIdGetResponses, GetFlashcardFlashcardFlashcardIdGetData, GetFlashcardFlashcardFlashcardIdGetErrors, GetFlashcardFlashcardFlashcardIdGetResponses, GetFlashcardSetFlashcardSetSetIdGetData, GetFlashcardSetFlashcardSetSetIdGetErrors, GetFlashcardSetFlashcardSetSetIdGetResponses, GetTemaTemaTemaIdGetData, GetTemaTemaTemaIdGetErrors, GetTemaTemaTemaIdGetResponses, GetThreadChatThreadGetData, GetThreadChatThreadGetErrors, GetThreadChatThreadGetResponses, ListAsignaturasAsignaturaGetData, ListAsignaturasAsignaturaGetResponses, ListEjerciciosEjercicioGetData, ListEjerciciosEjercicioGetErrors, ListEjerciciosEjercicioGetResponses, ListEventosEventoGetData, ListEventosEventoGetErrors, ListEventosEventoGetResponses, ListFilesFilesGetData, ListFilesFilesGetErrors, ListFilesFilesGetResponses, ListFlashcardSetsFlashcardSetGetData, ListFlashcardSetsFlashcardSetGetResponses, ListFlashcardsFlashcardGetData, ListFlashcardsFlashcardGetResponses, ListMessagesChatMessagesGetData, ListMessagesChatMessagesGetErrors, ListMessagesChatMessagesGetResponses, ListTemasTemaGetData, ListTemasTemaGetErrors, ListTemasTemaGetResponses, MarkSeenFlashcardFlashcardIdSeenPostData, MarkSeenFlashcardFlashcardIdSeenPostErrors, MarkSeenFlashcardFlashcardIdSeenPostResponses, ReviewFlashcardSetFlashcardSetSetIdReviewGetData, ReviewFlashcardSetFlashcardSetSetIdReviewGetErrors, ReviewFlashcardSetFlashcardSetSetIdReviewGetResponses, ReviewFlashcardsFlashcardReviewGetData, ReviewFlashcardsFlashcardReviewGetErrors, ReviewFlashcardsFlashcardReviewGetResponses, RunEjercicioEjercicioEjercicioIdRunPostData, RunEjercicioEjercicioEjercicioIdRunPostErrors, RunEjercicioEjercicioEjercicioIdRunPostResponses, SendMessageChatMessagesPostData, SendMessageChatMessagesPostErrors, SendMessageChatMessagesPostResponses, SendMessageStreamChatMessagesStreamPostData, SendMessageStreamChatMessagesStreamPostErrors, SendMessageStreamChatMessagesStreamPostResponses, SendOpenrouterSendPostData, SendOpenrouterSendPostErrors, SendOpenrouterSendPostResponses, UpdateAsignaturaAsignaturaAsignaturaIdPutData, UpdateAsignaturaAsignaturaAsignaturaIdPutErrors, UpdateAsignaturaAsignaturaAsignaturaIdPutResponses, UpdateEventoEventoEventoIdPutData, UpdateEventoEventoEventoIdPutErrors, UpdateEventoEventoEventoIdPutResponses, UpdateFileFilesFileIdPutData, UpdateFileFilesFileIdPutErrors, UpdateFileFilesFileIdPutResponses, UpdateFlashcardFlashcardFlashcardIdPutData, UpdateFlashcardFlashcardFlashcardIdPutErrors, UpdateFlashcardFlashcardFlashcardIdPutResponses, UpdateFlashcardSetFlashcardSetSetIdPutData, UpdateFlashcardSetFlashcardSetSetIdPutErrors, UpdateFlashcardSetFlashcardSetSetIdPutResponses, UpdateTemaTemaTemaIdPutData, UpdateTemaTemaTemaIdPutErrors, UpdateTemaTemaTemaIdPutResponses } from './types.gen';
+import type { AddFlashcardFlashcardSetSetIdFlashcardsPostData, AddFlashcardFlashcardSetSetIdFlashcardsPostErrors, AddFlashcardFlashcardSetSetIdFlashcardsPostResponses, ClearMessagesChatMessagesDeleteData, ClearMessagesChatMessagesDeleteErrors, ClearMessagesChatMessagesDeleteResponses, CreateAsignaturaAsignaturaPostData, CreateAsignaturaAsignaturaPostErrors, CreateAsignaturaAsignaturaPostResponses, CreateEventoEventoPostData, CreateEventoEventoPostErrors, CreateEventoEventoPostResponses, CreateFileFilesPostData, CreateFileFilesPostErrors, CreateFileFilesPostResponses, CreateFlashcardFlashcardPostData, CreateFlashcardFlashcardPostErrors, CreateFlashcardFlashcardPostResponses, CreateFlashcardSetFlashcardSetPostData, CreateFlashcardSetFlashcardSetPostErrors, CreateFlashcardSetFlashcardSetPostResponses, CreateFlashcardSetFromFilesFlashcardSetFromFilesPostData, CreateFlashcardSetFromFilesFlashcardSetFromFilesPostErrors, CreateFlashcardSetFromFilesFlashcardSetFromFilesPostResponses, CreateTemaTemaPostData, CreateTemaTemaPostErrors, CreateTemaTemaPostResponses, DeleteAsignaturaAsignaturaAsignaturaIdDeleteData, DeleteAsignaturaAsignaturaAsignaturaIdDeleteErrors, DeleteAsignaturaAsignaturaAsignaturaIdDeleteResponses, DeleteEjercicioEjercicioEjercicioIdDeleteData, DeleteEjercicioEjercicioEjercicioIdDeleteErrors, DeleteEjercicioEjercicioEjercicioIdDeleteResponses, DeleteEventoEventoEventoIdDeleteData, DeleteEventoEventoEventoIdDeleteErrors, DeleteEventoEventoEventoIdDeleteResponses, DeleteFileFilesFileIdDeleteData, DeleteFileFilesFileIdDeleteErrors, DeleteFileFilesFileIdDeleteResponses, DeleteFlashcardFlashcardFlashcardIdDeleteData, DeleteFlashcardFlashcardFlashcardIdDeleteErrors, DeleteFlashcardFlashcardFlashcardIdDeleteResponses, DeleteFlashcardSetFlashcardSetSetIdDeleteData, DeleteFlashcardSetFlashcardSetSetIdDeleteErrors, DeleteFlashcardSetFlashcardSetSetIdDeleteResponses, DeleteTemaTemaTemaIdDeleteData, DeleteTemaTemaTemaIdDeleteErrors, DeleteTemaTemaTemaIdDeleteResponses, DeleteThreadChatThreadsThreadIdDeleteData, DeleteThreadChatThreadsThreadIdDeleteErrors, DeleteThreadChatThreadsThreadIdDeleteResponses, GenerateExerciseStudyExercisePostData, GenerateExerciseStudyExercisePostErrors, GenerateExerciseStudyExercisePostResponses, GenerateFlashcardsStudyFlashcardsPostData, GenerateFlashcardsStudyFlashcardsPostErrors, GenerateFlashcardsStudyFlashcardsPostResponses, GetAsignaturaAsignaturaAsignaturaIdGetData, GetAsignaturaAsignaturaAsignaturaIdGetErrors, GetAsignaturaAsignaturaAsignaturaIdGetResponses, GetEjercicioEjercicioEjercicioIdGetData, GetEjercicioEjercicioEjercicioIdGetErrors, GetEjercicioEjercicioEjercicioIdGetResponses, GetEventoEventoEventoIdGetData, GetEventoEventoEventoIdGetErrors, GetEventoEventoEventoIdGetResponses, GetFileFilesFileIdGetData, GetFileFilesFileIdGetErrors, GetFileFilesFileIdGetResponses, GetFlashcardFlashcardFlashcardIdGetData, GetFlashcardFlashcardFlashcardIdGetErrors, GetFlashcardFlashcardFlashcardIdGetResponses, GetFlashcardSetFlashcardSetSetIdGetData, GetFlashcardSetFlashcardSetSetIdGetErrors, GetFlashcardSetFlashcardSetSetIdGetResponses, GetTemaTemaTemaIdGetData, GetTemaTemaTemaIdGetErrors, GetTemaTemaTemaIdGetResponses, GetThreadChatThreadGetData, GetThreadChatThreadGetErrors, GetThreadChatThreadGetResponses, ListAsignaturasAsignaturaGetData, ListAsignaturasAsignaturaGetResponses, ListEjerciciosEjercicioGetData, ListEjerciciosEjercicioGetErrors, ListEjerciciosEjercicioGetResponses, ListEventosEventoGetData, ListEventosEventoGetErrors, ListEventosEventoGetResponses, ListFilesFilesGetData, ListFilesFilesGetErrors, ListFilesFilesGetResponses, ListFlashcardSetsFlashcardSetGetData, ListFlashcardSetsFlashcardSetGetResponses, ListFlashcardsFlashcardGetData, ListFlashcardsFlashcardGetResponses, ListMessagesChatMessagesGetData, ListMessagesChatMessagesGetErrors, ListMessagesChatMessagesGetResponses, ListTemasTemaGetData, ListTemasTemaGetErrors, ListTemasTemaGetResponses, ListThreadsChatThreadsGetData, ListThreadsChatThreadsGetResponses, LoginAuthLoginPostData, LoginAuthLoginPostErrors, LoginAuthLoginPostResponses, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponses, MarkSeenFlashcardFlashcardIdSeenPostData, MarkSeenFlashcardFlashcardIdSeenPostErrors, MarkSeenFlashcardFlashcardIdSeenPostResponses, MeAuthMeGetData, MeAuthMeGetResponses, RefreshAuthRefreshPostData, RefreshAuthRefreshPostErrors, RefreshAuthRefreshPostResponses, ReviewFlashcardSetFlashcardSetSetIdReviewGetData, ReviewFlashcardSetFlashcardSetSetIdReviewGetErrors, ReviewFlashcardSetFlashcardSetSetIdReviewGetResponses, ReviewFlashcardsFlashcardReviewGetData, ReviewFlashcardsFlashcardReviewGetErrors, ReviewFlashcardsFlashcardReviewGetResponses, RunEjercicioEjercicioEjercicioIdRunPostData, RunEjercicioEjercicioEjercicioIdRunPostErrors, RunEjercicioEjercicioEjercicioIdRunPostResponses, SendMessageChatMessagesPostData, SendMessageChatMessagesPostErrors, SendMessageChatMessagesPostResponses, SendMessageStreamChatMessagesStreamPostData, SendMessageStreamChatMessagesStreamPostErrors, SendMessageStreamChatMessagesStreamPostResponses, SendOpenrouterSendPostData, SendOpenrouterSendPostErrors, SendOpenrouterSendPostResponses, UpdateAsignaturaAsignaturaAsignaturaIdPutData, UpdateAsignaturaAsignaturaAsignaturaIdPutErrors, UpdateAsignaturaAsignaturaAsignaturaIdPutResponses, UpdateEventoEventoEventoIdPutData, UpdateEventoEventoEventoIdPutErrors, UpdateEventoEventoEventoIdPutResponses, UpdateFileFilesFileIdPutData, UpdateFileFilesFileIdPutErrors, UpdateFileFilesFileIdPutResponses, UpdateFlashcardFlashcardFlashcardIdPutData, UpdateFlashcardFlashcardFlashcardIdPutErrors, UpdateFlashcardFlashcardFlashcardIdPutResponses, UpdateFlashcardSetFlashcardSetSetIdPutData, UpdateFlashcardSetFlashcardSetSetIdPutErrors, UpdateFlashcardSetFlashcardSetSetIdPutResponses, UpdateTemaTemaTemaIdPutData, UpdateTemaTemaTemaIdPutErrors, UpdateTemaTemaTemaIdPutResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,78 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * Login
+ *
+ * Cambia la contrasena por un par de tokens.
+ *
+ * Pasos: verificar la contrasena con verify_password (si falta password.hash,
+ * RuntimeError y se devuelve un 500 con ese mensaje); comprobar el dispositivo
+ * con is_device_allowed DESPUES, para que el coste en tiempo sea el mismo; si
+ * la contrasena no vale o el dispositivo no esta permitido, devolver el mismo
+ * 401 "Contrasena incorrecta." en los dos casos (el bloqueo por dispositivo no
+ * se puede distinguir de un fallo de contrasena); emitir el par con
+ * _token_pair.
+ */
+export const loginAuthLoginPost = <ThrowOnError extends boolean = false>(options: Options<LoginAuthLoginPostData, ThrowOnError>): RequestResult<LoginAuthLoginPostResponses, LoginAuthLoginPostErrors, ThrowOnError> => (options.client ?? client).post<LoginAuthLoginPostResponses, LoginAuthLoginPostErrors, ThrowOnError>({
+    url: '/auth/login',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Refresh
+ *
+ * Renueva el par de tokens a partir del refresh.
+ *
+ * Pasos: validar el refresh con decode_token("refresh") y devolver 401 si no
+ * vale; volver a comprobar is_device_allowed con el User-Agent actual y, si no
+ * esta permitido, devolver el mismo 401 que un refresh invalido (no se revela
+ * el bloqueo por dispositivo); emitir un par nuevo con _token_pair (rotacion).
+ *
+ * Los tokens son stateless: el refresh viejo no se revoca en el servidor y
+ * sigue siendo valido hasta que caduque. Rotar solo evita reutilizarlo desde
+ * el cliente.
+ */
+export const refreshAuthRefreshPost = <ThrowOnError extends boolean = false>(options: Options<RefreshAuthRefreshPostData, ThrowOnError>): RequestResult<RefreshAuthRefreshPostResponses, RefreshAuthRefreshPostErrors, ThrowOnError> => (options.client ?? client).post<RefreshAuthRefreshPostResponses, RefreshAuthRefreshPostErrors, ThrowOnError>({
+    url: '/auth/refresh',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Me
+ *
+ * Devuelve los datos del access token en uso.
+ *
+ * Pasos: leer el token de la cabecera Authorization (AuthMiddleware ya lo ha
+ * validado; si falta, 401); decodificarlo como access; devolver el subject y
+ * la fecha de caducidad del token. No se dice nada del dispositivo: si no
+ * estuviera permitido, el middleware ya habria contestado 401.
+ */
+export const meAuthMeGet = <ThrowOnError extends boolean = false>(options?: Options<MeAuthMeGetData, ThrowOnError>): RequestResult<MeAuthMeGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<MeAuthMeGetResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/auth/me',
+    ...options
+});
+
+/**
+ * Logout
+ *
+ * Cierra la sesion. En el servidor no hace nada.
+ *
+ * Pasos: ninguno. Los tokens son stateless y no hay lista negra, asi que el
+ * cliente es quien borra el par de tokens. El endpoint existe para que el
+ * frontend tenga un sitio unico donde cerrar sesion.
+ */
+export const logoutAuthLogoutPost = <ThrowOnError extends boolean = false>(options?: Options<LogoutAuthLogoutPostData, ThrowOnError>): RequestResult<LogoutAuthLogoutPostResponses, unknown, ThrowOnError> => (options?.client ?? client).post<LogoutAuthLogoutPostResponses, unknown, ThrowOnError>({ url: '/auth/logout', ...options });
 
 /**
  * List Eventos
@@ -179,12 +251,32 @@ export const updateAsignaturaAsignaturaAsignaturaIdPut = <ThrowOnError extends b
 });
 
 /**
+ * List Threads
+ *
+ * Lista las conversaciones globales de la Principal, la mas reciente antes.
+ *
+ * Pasos: consultar los ChatThread con file_id NULL ordenados por updated_at
+ * descendente; serializar cada uno con su message_count; devolver la lista.
+ */
+export const listThreadsChatThreadsGet = <ThrowOnError extends boolean = false>(options?: Options<ListThreadsChatThreadsGetData, ThrowOnError>): RequestResult<ListThreadsChatThreadsGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListThreadsChatThreadsGetResponses, unknown, ThrowOnError>({ url: '/chat/threads', ...options });
+
+/**
+ * Delete Thread
+ *
+ * Borra una conversacion completa (sus mensajes caen en cascada).
+ *
+ * Pasos: resolver el hilo (404 si no existe); borrarlo con db.delete; commit.
+ */
+export const deleteThreadChatThreadsThreadIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteThreadChatThreadsThreadIdDeleteData, ThrowOnError>): RequestResult<DeleteThreadChatThreadsThreadIdDeleteResponses, DeleteThreadChatThreadsThreadIdDeleteErrors, ThrowOnError> => (options.client ?? client).delete<DeleteThreadChatThreadsThreadIdDeleteResponses, DeleteThreadChatThreadsThreadIdDeleteErrors, ThrowOnError>({ url: '/chat/threads/{thread_id}', ...options });
+
+/**
  * Get Thread
  *
- * Devuelve el hilo global o el de un archivo, creandolo vacio si falta.
+ * Devuelve un hilo concreto, el de un archivo o el global mas reciente.
  *
- * Pasos: resolver el hilo con _get_or_create_thread; contar sus mensajes; y
- * devolver el hilo con message_count calculado.
+ * Pasos: con thread_id, devolver ese hilo (404 si falta); con file_id, el
+ * hilo del archivo creandolo si falta; sin ninguno, el global con actividad
+ * mas reciente, creando uno vacio solo si no hay ninguno (compatibilidad).
  */
 export const getThreadChatThreadGet = <ThrowOnError extends boolean = false>(options?: Options<GetThreadChatThreadGetData, ThrowOnError>): RequestResult<GetThreadChatThreadGetResponses, GetThreadChatThreadGetErrors, ThrowOnError> => (options?.client ?? client).get<GetThreadChatThreadGetResponses, GetThreadChatThreadGetErrors, ThrowOnError>({ url: '/chat/thread', ...options });
 
@@ -193,11 +285,13 @@ export const getThreadChatThreadGet = <ThrowOnError extends boolean = false>(opt
  *
  * Igual que send_message, pero devuelve la respuesta como SSE.
  *
- * Pasos: resolver el hilo; guardar el mensaje del usuario; construir el
- * historial con los ultimos HISTORY_LIMIT mensajes; preparar el stream con
- * open_chat_stream; devolver un StreamingResponse que emite "meta" (modelo e
- * ids), un "delta" por trozo de texto, y al final "done" con los dos mensajes
- * ya guardados, o "error" si el modelo falla.
+ * Pasos: resolver el hilo (thread_id, file_id o uno global nuevo); guardar el
+ * mensaje del usuario; lanzar la generacion del titulo si es el primer
+ * mensaje; construir el historial con los ultimos HISTORY_LIMIT mensajes;
+ * preparar el stream con open_chat_stream; devolver un StreamingResponse que
+ * emite "meta" (modelo, thread_id e ids), un "delta" por trozo de texto, y al
+ * final "done" con los dos mensajes ya guardados y el titulo, o "error" si el
+ * modelo falla.
  *
  * El mensaje del asistente se guarda al terminar, en una sesion propia: la
  * sesion de la dependencia ya puede estar cerrada mientras se hace streaming.
@@ -216,20 +310,22 @@ export const sendMessageStreamChatMessagesStreamPost = <ThrowOnError extends boo
 /**
  * Clear Messages
  *
- * Borra el historial del hilo, sin borrar el hilo ni el archivo.
+ * Borra el historial de un hilo, sin borrar el hilo ni el archivo.
  *
- * Pasos: resolver el hilo con _get_or_create_thread; borrar solo las filas de
- * chat_message con ese thread_id; commit.
+ * Pasos: resolver el hilo igual que list_messages; borrar solo las filas de
+ * chat_message con ese thread_id; commit. Sin hilo global no hay nada que
+ * borrar.
  */
 export const clearMessagesChatMessagesDelete = <ThrowOnError extends boolean = false>(options?: Options<ClearMessagesChatMessagesDeleteData, ThrowOnError>): RequestResult<ClearMessagesChatMessagesDeleteResponses, ClearMessagesChatMessagesDeleteErrors, ThrowOnError> => (options?.client ?? client).delete<ClearMessagesChatMessagesDeleteResponses, ClearMessagesChatMessagesDeleteErrors, ThrowOnError>({ url: '/chat/messages', ...options });
 
 /**
  * List Messages
  *
- * Lista los mensajes del hilo, del mas antiguo al mas reciente.
+ * Lista los mensajes de un hilo, del mas antiguo al mas reciente.
  *
- * Pasos: resolver el hilo con _get_or_create_thread; consultar sus mensajes
- * ordenados ascendentemente por id; aplicar limit; devolverlos.
+ * Pasos: resolver el hilo con thread_id (404 si falta), con file_id (lo crea
+ * si falta) o el global mas reciente (lista vacia si no hay ninguno);
+ * consultar sus mensajes ordenados por id; aplicar limit; devolverlos.
  */
 export const listMessagesChatMessagesGet = <ThrowOnError extends boolean = false>(options?: Options<ListMessagesChatMessagesGetData, ThrowOnError>): RequestResult<ListMessagesChatMessagesGetResponses, ListMessagesChatMessagesGetErrors, ThrowOnError> => (options?.client ?? client).get<ListMessagesChatMessagesGetResponses, ListMessagesChatMessagesGetErrors, ThrowOnError>({ url: '/chat/messages', ...options });
 
@@ -238,14 +334,14 @@ export const listMessagesChatMessagesGet = <ThrowOnError extends boolean = false
  *
  * Guarda el mensaje del usuario, pide respuesta al modelo y la guarda.
  *
- * Pasos: resolver el hilo con _get_or_create_thread (404 si el archivo no
- * existe); guardar el mensaje user y actualizar thread.updated_at con commit;
- * leer los ultimos HISTORY_LIMIT mensajes del hilo en orden ascendente y
- * mapearlos a {"role", "content"}; si hay file_id, pasar [file.path] como
- * files; llamar a send_chat con model_type "general"; si falla, loggear y
- * devolver 502 dejando guardado el mensaje del usuario; si va bien, guardar el
- * mensaje assistant con el modelo devuelto, actualizar thread.updated_at,
- * commit y devolver los dos mensajes.
+ * Pasos: resolver el hilo; guardar el mensaje user y actualizar
+ * thread.updated_at con commit; lanzar y esperar la generacion del titulo si
+ * es el primer mensaje; leer los ultimos HISTORY_LIMIT mensajes del hilo en
+ * orden ascendente y mapearlos a {"role", "content"}; si hay file_id, pasar
+ * [file.path] como files; llamar a send_chat con model_type "general"; si
+ * falla, loggear y devolver 502 dejando guardado el mensaje del usuario; si va
+ * bien, guardar el mensaje assistant con el modelo devuelto, actualizar
+ * thread.updated_at, commit y devolver los dos mensajes y el titulo.
  */
 export const sendMessageChatMessagesPost = <ThrowOnError extends boolean = false>(options: Options<SendMessageChatMessagesPostData, ThrowOnError>): RequestResult<SendMessageChatMessagesPostResponses, SendMessageChatMessagesPostErrors, ThrowOnError> => (options.client ?? client).post<SendMessageChatMessagesPostResponses, SendMessageChatMessagesPostErrors, ThrowOnError>({
     url: '/chat/messages',

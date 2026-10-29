@@ -6,11 +6,14 @@
  * generado (que no cubre respuestas SSE).
  */
 import type { ChatMessageRead } from "../api/generated";
+import { getAccessToken } from "../auth/tokenStore";
 import { API_BASE_URL } from "./api";
 
 export interface ChatStreamHandlers {
   /** Nombre del modelo que va a responder. */
   onModel?: (model: string) => void;
+  /** Id del hilo (nuevo si la peticion no lo traia) segun llega el `meta`. */
+  onThread?: (threadId: number) => void;
   /** Trozo de texto nuevo de la respuesta. */
   onDelta: (text: string) => void;
 }
@@ -18,6 +21,9 @@ export interface ChatStreamHandlers {
 export interface ChatStreamResult {
   user: ChatMessageRead;
   assistant: ChatMessageRead;
+  thread_id: number;
+  /** Titulo generado por la IA; null si ya existia o aun no estaba listo. */
+  title?: string | null;
 }
 
 interface StreamEvent {
@@ -63,30 +69,48 @@ async function readError(response: Response): Promise<string> {
 /**
  * Envia un mensaje y va emitiendo la respuesta del modelo segun llega.
  *
- * Pasos: POST con el cuerpo {content, file_id}; si el status no es 2xx, leer
- * el detalle y lanzar; leer el cuerpo con un reader; por cada bloque SSE
- * completo, emitir "delta" por el callback y resolver al recibir "done" (con
- * los dos mensajes guardados) o lanzar al recibir "error".
+ * Pasos: POST con el cuerpo {content, thread_id, file_id}; si el status no es
+ * 2xx, leer el detalle y lanzar; leer el cuerpo con un reader; por cada bloque
+ * SSE completo, emitir "delta" por el callback y resolver al recibir "done"
+ * (con los dos mensajes guardados, el hilo y su titulo) o lanzar al recibir
+ * "error".
  */
 export async function streamChatMessage(
   input: {
     content: string;
+    threadId?: number | null;
     fileId?: number | null;
+    retry?: boolean;
     fileMode?: "text" | "file";
     signal?: AbortSignal;
   },
   handlers: ChatStreamHandlers,
 ): Promise<ChatStreamResult> {
+  const token = getAccessToken();
   const response = await fetch(`${API_BASE_URL}/chat/messages/stream`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({
       content: input.content,
+      thread_id: input.threadId ?? null,
       file_id: input.fileId ?? null,
+      retry: input.retry ?? false,
       file_mode: input.fileMode ?? "text",
     }),
     signal: input.signal,
   });
+
+  // El stream no pasa por el SDK, así que aquí no hay reintento con refresh.
+  if (response.status === 401) {
+    if (window.location.pathname !== "/login") {
+      window.location.replace("/login");
+    }
+    throw new Error("Sesión caducada. Vuelve a iniciar sesión.");
+  }
 
   if (!response.ok) throw new Error(await readError(response));
   if (!response.body) throw new Error("El navegador no soporta respuestas en streaming.");
@@ -109,8 +133,9 @@ export async function streamChatMessage(
           const payload = JSON.parse(item.data) as { text?: string };
           if (payload.text) handlers.onDelta(payload.text);
         } else if (item.event === "meta") {
-          const payload = JSON.parse(item.data) as { model?: string };
+          const payload = JSON.parse(item.data) as { model?: string; thread_id?: number };
           if (payload.model) handlers.onModel?.(payload.model);
+          if (typeof payload.thread_id === "number") handlers.onThread?.(payload.thread_id);
         } else if (item.event === "done") {
           return JSON.parse(item.data) as ChatStreamResult;
         } else if (item.event === "error") {

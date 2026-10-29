@@ -21,6 +21,7 @@ Nota de implementación (caldav 3.x): el UID y la URL del VEVENT se leen de `ica
 - web_server.error.log
 - script.error.log
 - server.log (aquí se guarda cuando se inicia/apaga el servidor con la fecha, la hora y el commit y rama asociado)
+- auth.log (aquí se guardan los intentos de login: resultado, IP y User-Agent. Nunca la contraseña ni los tokens)
 
 ## Files
 Se guardarán files (localmente), que podrán ser referenciados por eventos y flashcards.
@@ -40,7 +41,39 @@ Búsqueda de texto completo sobre archivos:
 Aquí se verá como mandarlos a Openrouter al igual que como hacer para buscarlos en la web
 
 ## Auth
-!TODO
+App de **un solo usuario**: no hay tabla de usuarios, ni registro, ni roles. Solo una contraseña local y tokens JWT. Todo vive en `/server/auth`.
+
+**Contraseña**
+- Se guarda hasheada en `server/auth/password.hash` (ignorado por git, permisos 600). Formato: `pbkdf2_sha256$<iteraciones>$<salt_hex>$<hash_hex>` (PBKDF2-HMAC-SHA256, 600.000 iteraciones, salt de 16 bytes).
+- Se genera con `./sh/hash_password.sh`, que pide la contraseña dos veces por teclado (nunca por argumento, para no dejarla en el historial) y escribe el fichero.
+- La verificación es con `hmac.compare_digest`. Sin fichero también se responde `401 "Contraseña incorrecta."` (no se revela si falta la configuración); el intento queda como `sin-password-configurada` en `log/auth.log`.
+
+**Tokens**
+- JWT HS256 firmados con `JWT_SECRET` (en `.env`; sin él, login → 500). `iss=studyist`, `sub=owner`, `jti` aleatorio y claim `dev` con un hash corto del User-Agent.
+- **Access: 2 días.** **Refresh: 4 días.** `POST /auth/refresh` devuelve un par nuevo (rotación). Son stateless: el refresh viejo no se revoca y el logout no toca el servidor, solo borra los tokens en el cliente.
+- `POST /auth/login` → `TokenPair` (`access_token`, `refresh_token`, `token_type`, `expires_in`, `refresh_expires_in`). `GET /auth/me` → `subject`, `expires_at`. `POST /auth/logout` → 204.
+
+**Protección de rutas**
+- `AuthMiddleware` (ASGI, por dentro de CORS y del capturador de 500) exige `Authorization: Bearer <access>` en **todas** las rutas, incluido el mount `/files`, para que los archivos no queden públicos.
+- Rutas públicas: `/auth/login`, `/auth/refresh`, `/docs`, `/redoc`, `/openapi.json`, `/docs/oauth2-redirect` y cualquier `OPTIONS` (preflight CORS).
+- Un refresh token usado como access → 401. Token firmado con otro secreto o caducado → 401 con `WWW-Authenticate: Bearer`.
+- **Ficheros estáticos:** un `<img>` o un `<a download>` no pueden mandar la cabecera `Authorization`, así que para `GET`/`HEAD` bajo `/files/` el middleware acepta también `?token=<access>`. Un refresh en la query, o un `POST` con `?token=`, siguen dando 401. En el frontend lo añade `withAccessToken()` (`lib/api.ts`), que usan `fileUrl()`/`thumbnailUrl()` de `pages/files/fileUtils.ts` y la página de flashcard.
+
+**Dispositivos**
+- `server/auth/device.json` (ignorado por git) decide desde qué dispositivos se puede entrar. Se compara contra el `User-Agent` por subcadena, sin distinguir mayúsculas.
+- `"devices": ["*"]` = todos (valor por defecto). O una lista, ej. `["Macintosh", "iPhone"]`.
+- Se comprueba en login, en refresh y en cada petición autenticada. El fichero se relee en cada petición (no hace falta reiniciar el servidor).
+- **El bloqueo por dispositivo es invisible**: login y refresh responden exactamente igual que una contraseña mala o un token inválido (`401 "Contraseña incorrecta."` en login; `401 "Sesión no válida o caducada."` en refresh y en rutas privadas). La contraseña se verifica siempre antes de mirar el dispositivo, para no filtrarlo por el tiempo de respuesta. `/auth/me` no dice nada del dispositivo.
+- Si el fichero falta, está corrupto o la lista está vacía, se loggea un warning y se permite todo: el filtro por dispositivo es una defensa blanda y no puede dejar fuera al único usuario.
+- **Logging:** cada intento de login se apunta en `log/auth.log` con `outcome` (`ok`, `contrasena-incorrecta`, `dispositivo-bloqueado`, `sin-password-configurada`), IP y User-Agent (recortado a 200 caracteres). Ahí sí se distingue el bloqueo por dispositivo, pero eso solo lo ve el servidor: al cliente le llega siempre el mismo 401. Nunca se escribe la contraseña ni el token. Si el log no se puede abrir, el login sigue.
+- Para saber el User-Agent de un dispositivo: <https://www.whatismybrowser.com/detect/what-is-my-user-agent/>. Sirve cualquier otro checker; hay que copiar un trozo estable (plataforma + navegador), no la versión.
+- `server/auth/device.json.example` explica el formato y trae `"*"`. El `device.json` real del dueño está puesto para el iPhone 15 (`iPhone`).
+
+**Frontend**
+- Login en `/login`, fuera de `AppShell` (sin raíl). `AuthProvider` guarda el par de tokens en `localStorage` (claves `studyist.access` / `studyist.refresh`), renueva el access 5 minutos antes de que caduque y arranca la sesión con un refresh silencioso.
+- `initApi()` registra un interceptor que añade el `Authorization` a todas las llamadas del SDK. Ante un 401 (salvo en `/auth/*`) hace un único refresh compartido y reintenta la petición; si el refresh falla, borra los tokens y manda a `/login`.
+- `chatStream.ts` manda el mismo `Authorization` en el SSE a mano.
+- El botón de cerrar sesión está en el raíl de escritorio y en la barra inferior móvil.
 
 ## Web
 Frontend con React TS + Tailwind CSS
@@ -56,7 +89,7 @@ Asegurarse siempre que es Mobile Ready. NO crear una WebApp. Quitar que si hago 
 
 Los temas se muestran como árbol plegable con sangría (un tema puede tener subtemas, sin límite de profundidad). El tema padre se elige al crear uno nuevo y se puede cambiar desde el detalle del tema.
 
-Rutas del frontend: `/` (Principal), `/archivos`, `/archivos/:id`, `/asignaturas`, `/asignaturas/:id`, `/temas/:id`, `/ejercicios/:id` (resolver o leer un ejercicio guardado), `/eventos`, `/flashcards` (All Flashcard Sets + test global), `/flashcards/:setId` (entrenar el set), `/flashcards/:setId/cards/:cardId` (gestionar una flashcard).
+Rutas del frontend: `/login` (contraseña, fuera del raíl), `/` (Principal), `/archivos`, `/archivos/:id`, `/asignaturas`, `/asignaturas/:id`, `/temas/:id`, `/ejercicios/:id` (resolver o leer un ejercicio guardado), `/eventos`, `/flashcards` (All Flashcard Sets + test global), `/flashcards/:setId` (entrenar el set), `/flashcards/:setId/cards/:cardId` (gestionar una flashcard).
 
 El chat responde en **streaming**: `POST /chat/messages/stream` (SSE) y el texto se pinta según llega, sin esperar a la respuesta completa. El cliente vive en `web/src/lib/chatStream.ts`; `ChatPanel` recibe `streaming` para ocultar los puntos de "escribiendo" en cuanto entra el primer trozo.
 
@@ -91,11 +124,19 @@ ICLOUD_APP_PASSWORD=
 
 OPENROUTER_API_KEY=
 
+JWT_SECRET=
+
 ## Views
 Vas a generar un spec de OpenAPI automaticamente con la herramienta que te provee FastAPI en JSON.
 Cada categoría de view aquí se lleva su propia carpeta, y su propio endpoint path (/).
 
 *(Cuando pongo todo, significa que ese endpoint puede tocar todas las columnas, menos PK obviamente)*
+- Auth
+    - `POST /auth/login`: body `{password}`. Verifica la contraseña y, si no vale o el dispositivo no está permitido, devuelve el mismo 401 "Contraseña incorrecta." (el bloqueo por dispositivo no se distingue). Devuelve `access_token`, `refresh_token`, `token_type`, `expires_in` (172800) y `refresh_expires_in` (345600).
+    - `POST /auth/refresh`: body `{refresh_token}`. Rota el par; un access token aquí da 401. Un refresh válido de un dispositivo no permitido da el mismo 401 "Sesión no válida o caducada.".
+    - `GET /auth/me`: `subject` y `expires_at` del access token actual. No revela nada del dispositivo.
+    - `POST /auth/logout`: 204. No revoca nada en servidor (JWT stateless); el cliente borra los tokens.
+    - El resto de endpoints, y el mount `/files`, exigen `Authorization: Bearer <access>` (ver [Auth](#auth)).
 - Evento
     - Crear (todo)
     - Modificar (todo menos fecha)
@@ -151,18 +192,21 @@ Cada categoría de view aquí se lleva su propia carpeta, y su propio endpoint p
     - Send(message:str, model_type:str, system_prompt:str, files:list=None, model_override=None): Envía mensaje, pudiendo elegir el tipo de modelo:enum[str] = ["pdf", "general"] (luego se añadirán más modelos), o sobreescribir totalmente el nombre de modelo como tal (model_override). Elige también el system prompt, que hace referencia al nombre del archivo de prompt pero sin el .txt al final, entonces tiene que referenciar a un archivo real. Files referencia a una lista de paths de files que mandar opcionalmente al modelo.
 - Study
     - Generate flashcards: Necesita que el usuario le apunte a un flashcard set y a uno o más files. Usa Send del view de Openrouter. Puedes elegir núm de flashcards. Tiene JSON parsing por si la IA se lía (poco probable). En español. Sirve también para completar un set existente: mete las tarjetas que ya tiene en el mensaje y devuelve `duplicates`.
-    - Generate exercise: `POST /study/exercise` con `tema_id`, `kind` (`texto` por defecto o `programacion`), `instructions` opcional y `file_mode`. Usa solo los archivos del tema de tipo `ejercicio` o `examen` (400 si no hay ninguno) y el prompt `exercises` (texto) o `exercises_code` (programación). Guarda el ejercicio en la BBDD ligado al tema y devuelve `exercise` (con sus test cases), `model` y los nombres de los `files` usados.
+    - Generate exercise: `POST /study/exercise` con `tema_id`, `kind` (`texto` por defecto o `programacion`), `instructions` opcional y `file_mode`. Usa el modelo `openai/gpt-6-luna` (`model_type` `exercise` en openrouter). Usa solo los archivos del tema de tipo `ejercicio` o `examen` (400 si no hay ninguno) y el prompt `exercises` (texto) o `exercises_code` (programación). Guarda el ejercicio en la BBDD ligado al tema y devuelve `exercise` (con sus test cases), `model` y los nombres de los `files` usados.
 - Ejercicio
     - `GET /ejercicio?tema_id=`: lista de ejercicios guardados (resumen, del más reciente al más antiguo).
     - `GET /ejercicio/{id}`: ejercicio completo con sus test cases.
     - `DELETE /ejercicio/{id}`: borra el ejercicio y sus test cases en cascada.
     - `POST /ejercicio/{id}/run`: body `{code}`. Solo ejercicios de programación (400 en los de texto). Ejecuta `solve(*args)` contra los test cases en un subproceso `python -I` con timeout de 5 s y devuelve `ok`, el detalle por caso (`position`, `passed`, `expected`, `actual`, `error`) y un `error` global si el código no llega a correr. El código del usuario se ejecuta en local: no es una sandbox de red ni de ficheros.
 - Chat
-    - Get thread: `GET /chat/thread` devuelve el hilo global (Principal). Con `?file_id=` devuelve el hilo de ese archivo (página Archivo). Si no existe, se crea vacío.
-    - Get messages: `GET /chat/messages` lista los mensajes del hilo (global o `?file_id=`), ordenados por fecha.
-    - Send message: `POST /chat/messages` guarda el mensaje del usuario, llama a OpenRouter con el prompt `general` y el contexto de los **últimos 20 mensajes** de ese hilo, guarda la respuesta y devuelve los dos mensajes. Con `?file_id=` el archivo se manda como adjunto al modelo.
-    - Send message (streaming): `POST /chat/messages/stream` hace lo mismo que el anterior pero responde `text/event-stream` con eventos `meta` (modelo e ids), `delta` (trozos de texto), `done` (los dos mensajes ya guardados) y `error`. El mensaje del asistente se guarda al cerrar el stream, en una sesión propia; si el cliente corta o el modelo falla, el mensaje del usuario se conserva.
-    - Clear: `DELETE /chat/messages` borra el historial del hilo (global o `?file_id=`), sin borrar el hilo ni el archivo.
+    - Historial: `GET /chat/threads` lista las conversaciones globales de la Principal (más reciente primero) con `title` y `message_count`. Cada envío sin `thread_id` ni `file_id` crea un hilo global nuevo: entrar en la Principal abre siempre una conversación vacía y las anteriores se recuperan desde este historial.
+    - Título: lo genera la IA con el prompt `title` (`prompts/title.txt`) **solo con el primer mensaje** del hilo. Se guarda en `chat_thread.title`; si el modelo falla se usa el primer mensaje recortado. El resto de mensajes no vuelve a generarlo.
+    - Get thread: `GET /chat/thread` devuelve el hilo global más reciente. Con `?thread_id=` ese hilo concreto y con `?file_id=` el hilo de ese archivo (página Archivo). Si falta el global, se crea vacío.
+    - Get messages: `GET /chat/messages` lista los mensajes del hilo (`?thread_id=`, `?file_id=` o el global más reciente), ordenados por fecha.
+    - Send message: `POST /chat/messages` guarda el mensaje del usuario, llama a OpenRouter con el prompt `general` y el contexto de los **últimos 20 mensajes** de ese hilo, guarda la respuesta y devuelve los dos mensajes (y el título si se acaba de generar). El hilo se elige con `thread_id` o, en Archivo, con `file_id`; sin ninguno se crea uno nuevo. Con `file_id` el archivo se manda como adjunto al modelo. `retry: true` responde al último mensaje de usuario sin volver a guardarlo (solo si la respuesta anterior falló).
+    - Send message (streaming): `POST /chat/messages/stream` hace lo mismo que el anterior pero responde `text/event-stream` con eventos `meta` (modelo, `thread_id` e ids), `delta` (trozos de texto), `done` (los dos mensajes ya guardados, `thread_id` y `title`) y `error`. El mensaje del asistente se guarda al cerrar el stream, en una sesión propia; si el cliente corta o el modelo falla, el mensaje del usuario se conserva.
+    - Delete thread: `DELETE /chat/threads/{thread_id}` borra la conversación completa (sus mensajes caen en cascada).
+    - Clear: `DELETE /chat/messages` borra el historial del hilo (`?thread_id=`, `?file_id=` o el global más reciente), sin borrar el hilo ni el archivo.
 
 
 ## Flashcard System
@@ -280,12 +324,26 @@ Si eres agente: nunca crearás un archivo no mencionado en esta arquitectura (ex
     - src/lib/chatStream.ts: cliente SSE del chat en streaming (parsea meta/delta/done/error).
     - src/components/CodeEditor.tsx: editor de código CodeMirror 6 (resaltado de Python, números de línea, autocompletado y Tab/Shift+Tab para indentar). Se usa en la página de ejercicios de programación.
     - src/components/TemaPicker.tsx: selector reutilizable de tema con búsqueda por nombre y filtro por asignatura.
+    - src/auth/tokenStore.ts: tokens en localStorage (`studyist.access` / `studyist.refresh`), decodificado del JWT sin dependencias y aviso de cambios de sesión.
+    - src/auth/authClient.ts: login, refresh, logout y `/auth/me` con `fetch` a pelo (sin SDK), con `AuthRequestError`.
+    - src/auth/AuthContext.tsx: `AuthProvider` y `useAuth()`; arranque con refresh silencioso, renovación 5 min antes de caducar y logout.
+    - src/auth/RequireAuth.tsx: guarda de rutas; sin sesión redirige a `/login`.
+    - src/auth/LoginPage.tsx: formulario de contraseña única (Onyx, 16px, mobile ready).
     ...
 - /prompts
     - Todos los prompts usados para los modelos se guardarán bajo forma de .txt, con el objetivo de que sea fácil modificarlos.
 - /server
     - main.py: Entrypoint de FastAPI, crea la app y monta las views.
     - models.py: Modelos Pydantic (schemas de request/response) usados por las views.
+    - /auth
+        - config.py: Rutas de `password.hash` y `device.json`, lectura de `JWT_SECRET`, verificación PBKDF2 de la contraseña y allowlist de dispositivos por User-Agent (fail-open si falta el JSON).
+        - tokens.py: Crear y validar los JWT de access (2 días) y refresh (4 días) con PyJWT; `AuthError` para los 401.
+        - middleware.py: Middleware ASGI que exige `Bearer <access>` en todas las rutas menos las públicas y comprueba el dispositivo.
+        - audit.py: Escribe cada intento de login en `log/auth.log` (resultado real, IP y User-Agent recortado). Nunca contraseña ni tokens; si el log falla, el login sigue.
+        - router.py: `POST /auth/login` (con auditoría), `POST /auth/refresh`, `GET /auth/me`, `POST /auth/logout`.
+        - device.json.example: Formato de la allowlist de dispositivos (`"*"` o lista de trozos de User-Agent) y URL para consultar el tuyo.
+        - password.hash *(ignorado por git)*: Hash de la contraseña, generado con `sh/hash_password.sh`. No se versiona.
+        - device.json *(ignorado por git)*: Allowlist real de dispositivos (iPhone 15). No se versiona.
     - /scripts
         - calendar.py: Crear eventos en un calendario iCloud
         - openrouter.py: Interfaz super simple para interactuar con los modelos de openrouter
@@ -304,6 +362,7 @@ Si eres agente: nunca crearás un archivo no mencionado en esta arquitectura (ex
     - test_calendar.py: lectura del UID/URL del VEVENT con caldav 3.x (sin vobject) y borrado por URL. Incluye una prueba real de crear→borrar en iCloud, desactivada por defecto: se lanza con `STUDYIST_ICLOUD_TESTS=1`.
     - test_evento.py: tema opcional del evento (validación por asignatura, SET NULL al borrar el tema) y duración en minutos.
     - test_chat_stream.py: eventos SSE del chat en streaming y persistencia de los dos mensajes.
+    - test_auth.py: middleware (401 sin token), login/refresh/TTLs, tipo de token, `/auth/me`, logout, allowlist de dispositivos y auditoría de logins en `auth.log`.
 - /files
     - /images
     - /pdfs
@@ -316,6 +375,7 @@ Si eres agente: nunca crearás un archivo no mencionado en esta arquitectura (ex
     - start_backend.sh: inicializar solo el backend
     - db_init.sh: Corre init.py
     - api_gen.sh: Regenera web/openapi.json desde FastAPI y el cliente TS con openapi-ts
+    - hash_password.sh: Pide la contraseña dos veces y escribe su hash PBKDF2 en server/auth/password.hash (chmod 600)
 - /log
     - backend_server.log
     - web_server.log
@@ -323,6 +383,7 @@ Si eres agente: nunca crearás un archivo no mencionado en esta arquitectura (ex
     - web_server.error.log
     - script.error.log
     - server.log
+    - auth.log
 
 - .gitignore
 - AGENTS.md

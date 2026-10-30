@@ -4,6 +4,7 @@ venv/
 __pycache__/
 *.pyc
 db/db.sqlite3
+db/db.sqlite3.bak-*
 db/temp/*.py
 files/*
 !files/images/.gitkeep

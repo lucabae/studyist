@@ -1,0 +1,6 @@
+# Cabeceras del frontend en Cloudflare Pages.
+# HSTS sin includeSubDomains: solo obliga a HTTPS en este hostname, no en el
+# resto de lucabae.com. Cualquier recurso http:// que se colara se sube a https.
+/*
+  Strict-Transport-Security: max-age=604800
+  Content-Security-Policy: upgrade-insecure-requests

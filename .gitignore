@@ -29,3 +29,6 @@ log/*.log
 web/vite.config.js
 web/vite.config.d.ts
 NOTAS.md
+
+# Token de la API de Cloudflare para desplegar (no se versiona).
+.cf_token

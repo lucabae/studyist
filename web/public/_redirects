@@ -1,0 +1,3 @@
+# Cloudflare Pages: la app es una SPA con React Router.
+# Cualquier ruta que no sea un fichero estatico devuelve index.html (200).
+/*    /index.html    200

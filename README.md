@@ -200,6 +200,16 @@ PROJECT.md         Especificación funcional completa
 
 ---
 
+## Despliegue
+
+La web se publica en `https://studyist.lucabae.com` mediante Cloudflare Pages y la API en `https://studyist-api.lucabae.com` mediante Cloudflare Tunnel hacia `127.0.0.1:8080`.
+
+El proyecto de Pages es de tipo Direct Upload, así que Cloudflare no compila desde el repositorio. El despliegue lo hace GitHub Actions en cada push a `main`: `.github/workflows/deploy.yml` compila `web/` y sube `web/dist` con Wrangler. Requiere el secret `CLOUDFLARE_API_TOKEN` (permiso «Cloudflare Pages: Edit») en *Settings → Secrets and variables → Actions*.
+
+La URL de la API en producción se define en `web/.env.production` (`VITE_API_URL`). Para desplegar a mano: `npx wrangler pages deploy dist --project-name=studyist` desde `web/`.
+
+---
+
 ## Problemas frecuentes
 
 **El login siempre dice "Contraseña incorrecta".**

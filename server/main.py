@@ -25,9 +25,16 @@ from server.views.study.router import router as study_router
 from server.views.tema.router import router as tema_router
 
 # Origenes permitidos por CORS.
-# TODO abierto: en produccion esto deberia ser solo http://localhost:5173, y
-# ademas hace falta decidir si el server escucha en 127.0.0.1 o en toda la red.
-ALLOWED_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+# En produccion el frontend vive en Cloudflare Pages (studyist.lucabae.com) y el
+# backend se publica por un tunel de Cloudflare
+# (studyist-api.lucabae.com -> 127.0.0.1:8080), asi que uvicorn sigue escuchando
+# solo en localhost. El comodin TLS gratuito de Cloudflare solo cubre
+# subdominios de primer nivel, por eso la API no cuelga de studyist.
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://studyist.lucabae.com",
+]
 
 LOG_DIR = Path(__file__).resolve().parents[1] / "log"
 ERROR_LOG = LOG_DIR / "backend_server.error.log"

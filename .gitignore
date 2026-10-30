@@ -16,6 +16,7 @@ web/node_modules/
 web/dist/
 .DS_Store
 .vscode
+.cf_token
 
 # Auth: ficheros locales del unico usuario (hash de la contrasena y allowlist
 # de dispositivos). Los ejemplos si se versionan.

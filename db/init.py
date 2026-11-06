@@ -71,6 +71,7 @@ SCHEMA: list[str] = [
         path      TEXT    NOT NULL UNIQUE,
         size      INTEGER NOT NULL,
         thumbnail TEXT,
+        page_count INTEGER,
         hash      TEXT    NOT NULL UNIQUE
     )
     """,
@@ -83,7 +84,9 @@ SCHEMA: list[str] = [
         asignatura_id INTEGER NOT NULL REFERENCES asignatura(id) ON DELETE CASCADE,
         parent_id     INTEGER REFERENCES tema(id) ON DELETE CASCADE,
         name          TEXT    NOT NULL,
-        notes         TEXT
+        notes         TEXT,
+        teacher_progress INTEGER NOT NULL DEFAULT 0,
+        student_progress INTEGER NOT NULL DEFAULT 0
     )
     """,
     """
@@ -248,7 +251,24 @@ def create_tables(connection: sqlite3.Connection) -> None:
     """
     for statement in SCHEMA:
         connection.execute(statement)
+    _migrate_existing_columns(connection)
     connection.commit()
+
+
+def _migrate_existing_columns(connection: sqlite3.Connection) -> None:
+    """Añade columnas nuevas a bases creadas por versiones anteriores."""
+    for table, column, definition in (
+        ("file", "page_count", "INTEGER"),
+        ("tema", "teacher_progress", "INTEGER NOT NULL DEFAULT 0"),
+        ("tema", "student_progress", "INTEGER NOT NULL DEFAULT 0"),
+    ):
+        columns = {
+            row[1] for row in connection.execute(f"PRAGMA table_info({table})")
+        }
+        if column not in columns:
+            connection.execute(
+                f"ALTER TABLE {table} ADD COLUMN {column} {definition}"
+            )
 
 
 def main() -> None:

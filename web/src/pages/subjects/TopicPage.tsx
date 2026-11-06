@@ -22,6 +22,7 @@ import { TopicDetailsForm } from "./TopicDetailsForm";
 import { TopicExerciseSection } from "./TopicExerciseSection";
 import { TopicFilesSection } from "./TopicFilesSection";
 import { TopicSetsSection } from "./TopicSetsSection";
+import { TopicStudyTimeline } from "./TopicStudyTimeline";
 
 type Status = "loading" | "ready" | "notfound" | "error";
 
@@ -162,6 +163,7 @@ export default function TopicPage() {
                 );
               }}
             />
+            <TopicStudyTimeline topic={topic} files={files} onSaved={setTopic} />
             <TopicFilesSection topic={topic} files={files} onSaved={setTopic} />
             <TopicSetsSection
               topic={topic}

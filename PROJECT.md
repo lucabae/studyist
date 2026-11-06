@@ -164,12 +164,14 @@ Cada categoría de view aquí se lleva su propia carpeta, y su propio endpoint p
     - Get (todo)
     - `GET /tema?asignatura_id=`: temas de una asignatura (lista plana, orden natural por nombre, con `parent_id` y `child_ids`; el árbol se monta en el cliente).
     - Jerarquía: `parent_id` opcional en crear y modificar. 404 si el padre no existe, 400 si es de otra asignatura, si es el propio tema o si es un descendiente (ciclo). `parent_id: null` devuelve el tema al primer nivel.
+    - Progreso: `teacher_progress` y `student_progress` son punteros absolutos en páginas del timeline de PDFs lectivos. No pueden superar el total de páginas del tema.
 - Files
     - Crear: Valida que el archivo sea una imagen raster o un PDF (415 si no), lo clasifica con su MIME Type y lo guarda en el Path que toque, llama a la función de crear thumb, y finalmente con toda esa información crea la fila de la BBDD. Acepta `kind` (`teoria` / `examen` / `ejercicio` / `otros`, por defecto `otros`), el tipo de documento que elige el usuario.
     - Modificar (nombre y tipo de documento)
     - Borrar (borra (con try) el archivo, y también la linea de la DB, y todas sus referencias).
     - Get (todo) con path relativo
     - `GET /files?kind=`: filtra por tipo de documento.
+    - Los PDFs guardan `page_count`; si una fila antigua lo tiene a NULL, se calcula la primera vez que se consulta.
 - Flashcard Set
     - Crear (todo)
     - Modificar (todo)
@@ -269,6 +271,7 @@ Hilo de conversación interno con la IA. Uno global (página Principal, `File` N
 - **Nombre**:str
 - **Files**:ManyToMany *(Apunta a la tabla Files)*
 - **Notas**:textfield
+- **Teacher progress / Student progress**:num *(punteros absolutos en páginas del timeline; por defecto 0)*
 - **Flashcards Sets**:ManyToMany *(Apunta a la tabla Flashcard Set)*
 - **Tema Parent**:ForeignKey[Tema] *(NULL = tema de primer nivel. El padre tiene que ser de la misma asignatura y no se admiten ciclos: ni el propio tema ni uno de sus descendientes. Al borrar un tema caen sus subtemas en cascada: `parent_id INTEGER REFERENCES tema(id) ON DELETE CASCADE` con índice `idx_tema_parent`)*
 
@@ -279,6 +282,7 @@ Hilo de conversación interno con la IA. Uno global (página Principal, `File` N
 - **Path**:str (incluye /images o /pdfs o /texts o /others en su ruta)
 - **Size**:num
 - **Thumbnail**:str *(Path a /thumb, puede ser NULL)*
+- **Page count**:num *(número de páginas del PDF; NULL para archivos no PDF o hasta el backfill perezoso)*
 - **Hash**:str *(sha256 del contenido, UNIQUE. Evita guardar dos veces el mismo archivo: si se resube, la API devuelve 409 con el id del que ya existe)*
 
 **Ejercicio**

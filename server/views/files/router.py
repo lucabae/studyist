@@ -147,7 +147,16 @@ def list_files(
         )
 
     stmt = stmt.order_by(File.name).limit(limit)
-    return list(db.scalars(stmt))
+    rows = list(db.scalars(stmt))
+    changed = False
+    for row in rows:
+        if row.type == "application/pdf" and row.page_count is None:
+            before = row.page_count
+            files.ensure_page_count(row)
+            changed |= row.page_count != before
+    if changed:
+        db.commit()
+    return rows
 
 
 @router.get("/{file_id}", response_model=FileRead)
@@ -159,6 +168,9 @@ def get_file(file_id: int, db: Session = Depends(get_session)) -> FileRead:
     row = db.get(File, file_id)
     if row is None:
         raise HTTPException(status_code=404, detail=f"No existe el file {file_id}")
+    if row.type == "application/pdf" and row.page_count is None:
+        files.ensure_page_count(row)
+        db.commit()
     return row
 
 

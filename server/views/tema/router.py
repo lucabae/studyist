@@ -32,7 +32,8 @@ def create_tema(payload: TemaCreate, db: Session = Depends(get_session)) -> Tema
         )
 
     _validate_parent(db, payload.parent_id, payload.asignatura_id)
-    files = _get_files_or_404(payload.file_ids, db)
+    selected_files = _get_files_or_404(payload.file_ids, db)
+    _validate_progress(payload.teacher_progress, payload.student_progress, selected_files)
     sets = _get_sets_or_404(payload.flashcard_set_ids, db)
 
     tema = Tema(
@@ -40,8 +41,10 @@ def create_tema(payload: TemaCreate, db: Session = Depends(get_session)) -> Tema
         parent_id=payload.parent_id,
         name=payload.name,
         notes=payload.notes,
+        teacher_progress=payload.teacher_progress,
+        student_progress=payload.student_progress,
     )
-    tema.files = files
+    tema.files = selected_files
     tema.flashcard_sets = sets
 
     db.add(tema)
@@ -126,6 +129,13 @@ def update_tema(
 
     parent_id = changes["parent_id"] if "parent_id" in changes else tema.parent_id
     _validate_parent(db, parent_id, asignatura_id, tema=tema)
+    teacher_progress = changes.get("teacher_progress", tema.teacher_progress)
+    student_progress = changes.get("student_progress", tema.student_progress)
+    teacher_progress = 0 if teacher_progress is None else teacher_progress
+    student_progress = 0 if student_progress is None else student_progress
+    changes["teacher_progress"] = teacher_progress
+    changes["student_progress"] = student_progress
+    _validate_progress(teacher_progress, student_progress, tema.files)
 
     for field, value in changes.items():
         setattr(tema, field, value)
@@ -215,6 +225,25 @@ def _get_files_or_404(file_ids: list[int], db: Session) -> list[File]:
     if missing:
         raise HTTPException(status_code=404, detail=f"No existen los files {missing}")
     return files
+
+
+def _validate_progress(
+    teacher_progress: int,
+    student_progress: int,
+    files: list[File],
+) -> None:
+    """Limita los punteros al total de páginas PDF lectivas del tema."""
+    total = 0
+    for row in files:
+        if row.type == "application/pdf" and row.kind != "ejercicio":
+            from server.scripts.files import ensure_page_count
+
+            total += ensure_page_count(row) or 0
+    if teacher_progress > total or student_progress > total:
+        raise HTTPException(
+            status_code=400,
+            detail=f"El progreso no puede superar las {total} páginas del tema",
+        )
 
 
 def _get_sets_or_404(set_ids: list[int], db: Session) -> list[FlashcardSet]:

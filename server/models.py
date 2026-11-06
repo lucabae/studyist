@@ -150,6 +150,8 @@ class TemaBase(BaseModel):
     asignatura_id: int
     name: Name
     notes: str | None = None
+    teacher_progress: int = Field(default=0, ge=0)
+    student_progress: int = Field(default=0, ge=0)
     parent_id: int | None = Field(
         default=None,
         description="Tema del que cuelga este; NULL lo deja en la raiz",
@@ -170,6 +172,8 @@ class TemaUpdate(BaseModel):
     asignatura_id: int | None = None
     name: Name | None = None
     notes: str | None = None
+    teacher_progress: int | None = Field(default=None, ge=0)
+    student_progress: int | None = Field(default=None, ge=0)
     parent_id: int | None = None
     file_ids: list[int] | None = None
     flashcard_set_ids: list[int] | None = None
@@ -204,6 +208,7 @@ class FileRead(BaseModel):
     path: str
     size: int
     thumbnail: str | None
+    page_count: int | None
     hash: str = Field(description="sha256 del contenido, sirve para deduplicar")
 
 

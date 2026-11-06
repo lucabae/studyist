@@ -60,6 +60,38 @@ def test_upload_accepts_a_pdf(client):
     assert response.json()["type"] == "application/pdf"
 
 
+def test_pdf_page_count_is_saved_and_backfilled_once(client, db_session, monkeypatch):
+    """Los PDFs nuevos guardan páginas y los antiguos se completan al leerlos."""
+    from server.scripts import files as files_script
+
+    monkeypatch.setattr(files_script, "count_pdf_pages", lambda path: 12)
+    uploaded = _upload(
+        client,
+        "lectura.pdf",
+        b"%PDF-1.4\n%%EOF\n",
+        "application/pdf",
+    ).json()
+    assert uploaded["page_count"] == 12
+
+    monkeypatch.setattr(files_script, "count_pdf_pages", lambda path: 18)
+    legacy = _upload(
+        client,
+        "legacy.pdf",
+        b"%PDF-1.4\n%%EOF\nlegacy",
+        "application/pdf",
+    ).json()
+    assert legacy["page_count"] == 18
+
+    from db.db import File
+
+    # Simula una fila creada antes de existir page_count.
+    row = db_session.get(File, legacy["id"])
+    row.page_count = None
+    db_session.commit()
+    monkeypatch.setattr(files_script, "count_pdf_pages", lambda path: 24)
+    assert client.get(f"/files/{legacy['id']}").json()["page_count"] == 24
+
+
 def test_upload_rejects_anything_that_is_not_image_or_pdf(client, files_root):
     """Texto, HTML, SVG y un .png con HTML dentro se rechazan con 415."""
     rechazados = [

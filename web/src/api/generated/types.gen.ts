@@ -527,6 +527,10 @@ export type FileRead = {
      */
     thumbnail: string | null;
     /**
+     * Page Count
+     */
+    page_count: number | null;
+    /**
      * Hash
      *
      * sha256 del contenido, sirve para deduplicar
@@ -1017,6 +1021,14 @@ export type TemaCreate = {
      */
     notes?: string | null;
     /**
+     * Teacher Progress
+     */
+    teacher_progress?: number;
+    /**
+     * Student Progress
+     */
+    student_progress?: number;
+    /**
      * Parent Id
      *
      * Tema del que cuelga este; NULL lo deja en la raiz
@@ -1050,6 +1062,14 @@ export type TemaRead = {
      * Notes
      */
     notes?: string | null;
+    /**
+     * Teacher Progress
+     */
+    teacher_progress?: number;
+    /**
+     * Student Progress
+     */
+    student_progress?: number;
     /**
      * Parent Id
      *
@@ -1096,6 +1116,14 @@ export type TemaUpdate = {
      * Notes
      */
     notes?: string | null;
+    /**
+     * Teacher Progress
+     */
+    teacher_progress?: number | null;
+    /**
+     * Student Progress
+     */
+    student_progress?: number | null;
     /**
      * Parent Id
      */

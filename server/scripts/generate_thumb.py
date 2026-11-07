@@ -1,9 +1,11 @@
 """Generacion de thumbnails de baja resolucion (100x60 px).
 
-Los thumbnails se guardan en /files/thumb con el mismo nombre base que el
-original.
+Los thumbnails se guardan en /files/thumb con un nombre derivado del path
+relativo del original (carpeta + nombre base + hash corto) para que dos
+archivos distintos nunca compartan el mismo thumbnail.
 """
 
+import hashlib
 import logging
 from pathlib import Path
 
@@ -66,7 +68,12 @@ def generate_thumb(path: Path) -> str | None:
         return None
 
     files.THUMB_DIR.mkdir(parents=True, exist_ok=True)
-    target = files.THUMB_DIR / f"{path.stem}.png"
+    # El nombre base solo no basta: images/foo.png y pdfs/foo.pdf (o foo.jpg y
+    # foo.png en la misma carpeta) compartirian thumbnail y al borrar uno se
+    # borraria el del otro. El hash del path relativo los hace unicos.
+    relative_path = path.relative_to(files.FILES_ROOT).as_posix()
+    digest = hashlib.sha256(relative_path.encode("utf-8")).hexdigest()[:10]
+    target = files.THUMB_DIR / f"{path.parent.name}_{path.stem}_{digest}.png"
     image.thumbnail(THUMB_SIZE)
     image.save(target, "PNG")
     return target.relative_to(files.FILES_ROOT).as_posix()

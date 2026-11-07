@@ -1,237 +1,137 @@
+<div align="center">
+  <img src="assets/cover.svg" alt="Studyist" width="100%">
+</div>
+
 # Studyist
 
-Aplicación **local y de un solo usuario** para organizar el estudio de la universidad: asignaturas y temas, apuntes (PDF e imágenes), eventos y exámenes sincronizados con iCloud, flashcards con repaso espaciado, chat con IA y generación de ejercicios.
+A single-user, local-first workspace for university study: courses and topics, notes (PDF and images), calendar events synced over CalDAV, spaced-repetition flashcards, an AI chat, and generated programming exercises.
 
-No hay registro ni varios usuarios. La app se abre en tu navegador, se protege con **una contraseña** y no está pensada para publicarse en internet.
+There is no sign-up and no multi-user logic. The app runs on your machine, is protected by one password, and is not meant to be exposed to the internet.
 
----
+## What it does
 
-## Requisitos
+- **Courses and topics** with a nested structure and per-topic file attachments.
+- **Files**: PDFs and raster images up to 30 MB, thumbnails, and full-text search over PDF content with SQLite FTS5.
+- **Calendar**: events (exams, tasks) linked to courses and topics, pushed one-way to iCloud with CalDAV and tracked by UID/ETag.
+- **Flashcards**: hand-written sets or generated from a topic, with spaced repetition and review sessions.
+- **AI**: chat with streaming responses, flashcard generation, and exercise generation through OpenRouter.
+- **Exercises**: stored test cases with an optional sandboxed runner (disabled by default).
+- **Auth**: one local password (PBKDF2-HMAC-SHA256, 600k iterations) and JWT access/refresh tokens.
 
-- **macOS, Linux o Windows con WSL** (los scripts son de bash).
-- **Python 3.11 o superior**.
-- **Node.js 20 o superior** y npm.
-- **Git**.
-- Opcional: una clave de [OpenRouter](https://openrouter.ai/) para el chat, las flashcards y los ejercicios.
-- Opcional: una contraseña de aplicación de iCloud para crear eventos en tu calendario.
+## Screenshots
 
-No hace falta Docker ni ningún servicio externo: todo vive en tu disco.
+The interface is a React SPA: dashboard, courses, topics, files, flashcards, calendar and chat. Screenshots are not committed yet; run it locally with the steps below.
 
----
+## Stack
 
-## Instalación desde cero
+| Layer | Technology |
+|---|---|
+| API | Python 3.11+, FastAPI, SQLAlchemy, Pydantic |
+| Data | SQLite with FTS5 |
+| Auth | PyJWT (HS256), PBKDF2 password hash, per-IP login rate limit |
+| Integrations | CalDAV/iCloud, OpenRouter, pypdfium2, Pillow |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, CodeMirror |
+| Tests | pytest (backend), `tsc --noEmit` (frontend) |
 
-Todos los comandos se ejecutan desde la raíz del repositorio.
+## Architecture
 
-### 1. Clona el repositorio
+```mermaid
+flowchart LR
+  UI["React SPA<br/>Vite + Tailwind"] -->|Bearer JWT| API["FastAPI<br/>routers + middleware"]
+  API --> DB[("SQLite<br/>FTS5")]
+  API --> FS["Local files<br/>+ thumbnails"]
+  API -->|CalDAV| IC["iCloud Calendar"]
+  API -->|HTTP| OR["OpenRouter"]
+  OR --> API
+  API -->|SSE| UI
+```
+
+The backend listens on `127.0.0.1:8080`; the frontend dev server runs on `5173` and proxies API calls. Every route except login and refresh requires a Bearer token, including the `/files` mount.
+
+## Data model
+
+```mermaid
+erDiagram
+  ASIGNATURA ||--o{ TEMA : has
+  ASIGNATURA ||--o{ EVENTO : schedules
+  TEMA ||--o{ FILE : stores
+  TEMA ||--o{ FLASHCARD_SET : groups
+  FLASHCARD_SET ||--o{ FLASHCARD : contains
+  TEMA ||--o{ EJERCICIO : generates
+  CHAT_THREAD ||--o{ CHAT_MESSAGE : keeps
+```
+
+`FILE` is indexed into a virtual `file_fts` table by triggers, so search stays in sync on insert, update and delete.
+
+## API
+
+Routers: `/auth`, `/asignatura`, `/tema`, `/files`, `/evento`, `/flashcard`, `/flashcard_set`, `/chat`, `/openrouter`, `/ejercicio`, `/study`.
+
+The generated OpenAPI document lives at `web/openapi.json`, and the TypeScript client is generated from it with `@hey-api/openapi-ts`. Interactive docs (`/docs`, `/redoc`) are disabled at runtime.
+
+## Run it
+
+Requirements: Python 3.11+, Node.js 20+, npm, Git, bash.
 
 ```bash
 git clone https://github.com/lucabae/studyist.git
 cd studyist
-```
 
-### 2. Crea el entorno de Python e instala dependencias
-
-```bash
 python3 -m venv server/venv
-server/venv/bin/pip install --upgrade pip
 server/venv/bin/pip install -r server/requirements.txt
+
+cd web && npm install && cd ..
+
+./sh/db_init.sh        # creates db/db.sqlite3
+cp .env.example .env   # then set JWT_SECRET
+./sh/hash_password.sh  # writes server/auth/password.hash
+./sh/start.sh          # backend + frontend
 ```
 
-Los scripts del proyecto usan `server/venv` automáticamente si existe.
+Open <http://localhost:5173> and log in with the password you just set.
 
-### 3. Instala el frontend
+Minimum environment:
 
-```bash
-cd web
-npm install
-cd ..
-```
-
-### 4. Crea la base de datos
-
-```bash
-./sh/db_init.sh
-```
-
-Crea `db/db.sqlite3` con todas las tablas. Es idempotente: puedes volver a lanzarlo sin miedo.
-
-### 5. Configura las variables de entorno
-
-```bash
-cp .env.example .env
-```
-
-Edita `.env` y rellena:
-
-| Variable | Obligatoria | Para qué |
+| Variable | Required | Purpose |
 |---|---|---|
-| `JWT_SECRET` | **Sí** | Firma los tokens de sesión. Genérala con `openssl rand -hex 32`. Sin ella, el login falla. |
-| `OPENROUTER_API_KEY` | No | Chat, generación de flashcards y ejercicios. Sin clave, esas funciones devuelven error. |
-| `ICLOUD_MAIL` | No | Correo de iCloud para crear eventos con CalDAV. |
-| `ICLOUD_APP_PASSWORD` | No | Contraseña de aplicación de iCloud (no la de tu cuenta). |
-| `ICLOUD_CALENDAR_NAME` | No | Nombre exacto del calendario donde se crean los eventos. Por defecto `Educación`. |
+| `JWT_SECRET` | Yes | Signs session tokens. Generate with `openssl rand -hex 32`. |
+| `OPENROUTER_API_KEY` | No | Chat, flashcard and exercise generation. |
+| `ICLOUD_MAIL` | No | iCloud account for CalDAV events. |
+| `ICLOUD_APP_PASSWORD` | No | App-specific password. |
+| `ICLOUD_CALENDAR_NAME` | No | Target calendar, default `Educación`. |
 
-Si no configuras iCloud, los eventos se guardan igualmente en la base de datos local; simplemente no se crean en el calendario remoto.
+Without iCloud the events are still stored locally; they just are not pushed to the remote calendar.
 
-### 6. Crea tu contraseña de acceso
-
-```bash
-./sh/hash_password.sh
-```
-
-Pide la contraseña dos veces y escribe `server/auth/password.hash` con permisos `600`. No se guarda la contraseña, solo su hash PBKDF2. Para cambiarla, vuelve a ejecutar el script (no hace falta la anterior).
-
-### 7. Configura los dispositivos permitidos (opcional)
+## Tests
 
 ```bash
-cp server/auth/device.json.example server/auth/device.json
-```
-
-Por defecto `"devices": ["*"]` deja entrar a cualquier navegador. Si quieres restringirlo, cambia la lista por fragmentos del `User-Agent` de tus dispositivos, por ejemplo:
-
-```json
-{ "devices": ["Macintosh", "iPhone"] }
-```
-
-El fichero se relee en cada petición: no hay que reiniciar. Es una defensa blanda (el `User-Agent` se puede falsificar), no un control de seguridad fuerte.
-
-### 8. Arranca la aplicación
-
-```bash
-./sh/start.sh
-```
-
-Abre **<http://localhost:5173>**, introduce la contraseña del paso 6 y listo.
-
-- Backend: `http://127.0.0.1:8080`
-- Frontend: `http://localhost:5173`
-- `Ctrl+C` para todo.
-
-También puedes arrancar cada parte por separado:
-
-```bash
-./sh/start_backend.sh    # solo API
-./sh/start_frontend.sh   # solo interfaz
-```
-
----
-
-## Comprobar que todo está bien
-
-```bash
-# Tests del backend (usan base de datos temporal y OpenRouter simulado:
-# no tocan tus datos ni gastan crédito)
 server/venv/bin/python -m pytest -q
-
-# Typecheck del frontend
 cd web && npm run typecheck
 ```
 
-Resultado esperado de los tests: `87 passed, 1 skipped` (el skip es la prueba real contra iCloud, desactivada por defecto).
+The suite uses a temporary database and a stubbed OpenRouter client, so it neither touches your data nor spends credit. The real iCloud test is skipped by default.
 
----
+## Security notes
 
-## Primeros pasos dentro de la app
+- Single user, no TLS, bound to loopback only. Do not expose port 8080 directly.
+- `.env`, `server/auth/password.hash` and `server/auth/device.json` are git-ignored.
+- Access tokens last 2 days, refresh tokens 4 days, with rotation on refresh.
+- Login is rate-limited to 10 failures per IP per 15 minutes.
+- Uploads are validated by content, not extension; HTML and SVG are rejected.
+- Exercise execution is disabled by default (`EXERCISE_RUN_ENABLED = False`).
 
-1. Crea una **asignatura** en `/asignaturas`.
-2. Añade **temas** dentro de ella.
-3. Sube **archivos** en `/archivos`: solo se admiten **imágenes y PDF**, hasta **30 MB** por archivo. Los PDF se indexan para buscar por su contenido; las imágenes, solo por nombre.
-4. Opcional: crea **eventos** y enlázalos a una asignatura y un tema.
-5. Genera **flashcards** desde un tema o crea un set a mano.
-6. Usa la página **Principal** para chatear con el modelo; cada conversación queda en el historial.
-
-Los datos están en `db/db.sqlite3` y los archivos en `files/`. Ambos son locales.
-
----
-
-## Seguridad y límites
-
-- Es una app **de un solo usuario** y sin TLS. El backend escucha solo en `127.0.0.1`. **No abras el puerto 8080 a internet** ni la publiques en un servidor sin poner antes HTTPS y autenticación delante.
-- `JWT_SECRET`, `server/auth/password.hash`, `server/auth/device.json` y `.env` **nunca** se suben a git. No los compartas.
-- La sesión usa tokens JWT: access de 2 días y refresh de 4. Se guardan en `localStorage` del navegador.
-- Las imágenes y descargas de `/files` llevan el token en la URL (`?token=`), porque un `<img>` no puede mandar cabeceras. No compartas esas URLs.
-- La documentación de la API (`/docs`, `/redoc`, `/openapi.json`) está **desactivada**.
-- La **ejecución de código** de los ejercicios de programación está **desactivada** (`EXERCISE_RUN_ENABLED = False`). El botón no aparece; la API devuelve 403.
-- Hay un límite de **32 MB por petición** y de **10 intentos de login fallidos por IP cada 15 minutos**.
-- Los logs están en `log/`. `auth.log` registra los intentos de login (resultado, IP y User-Agent), nunca la contraseña ni los tokens.
-
-Si pierdes la contraseña: ejecuta otra vez `./sh/hash_password.sh`. Si cambias `JWT_SECRET`, todas las sesiones abiertas se invalidan.
-
----
-
-## Estructura del proyecto
+## Structure
 
 ```
-server/            FastAPI: views, auth, scripts (PDF, CalDAV, OpenRouter)
-  main.py          Crea la app, CORS, auth, límites y mount /files
-  auth/            Contraseña, JWT, middleware y auditoría de logins
-  views/           Endpoints por recurso (asignatura, tema, files, chat...)
-  scripts/         Lógica no HTTP (thumbnails, OpenRouter, repaso, CalDAV)
-db/                Esquema SQL y ORM de SQLAlchemy (SQLite)
-web/               React + TypeScript + Vite + Tailwind
-prompts/           Prompts de los modelos, en .txt
-files/             Archivos subidos y thumbnails (ignorado por git)
-log/               Logs de ejecución (ignorado por git)
-sh/                Scripts de arranque, init de DB, hash de contraseña
-tests/             pytest del backend
-PROJECT.md         Especificación funcional completa
+server/        FastAPI app: main, auth, views, scripts
+db/            SQL schema and SQLAlchemy models
+web/           React + TypeScript frontend
+prompts/       Model prompts
+sh/            Start, database init, password hashing, API client generation
+tests/         pytest suite
+PROJECT.md     Functional specification
 ```
 
----
+## License
 
-## Desarrollo
-
-- Regenerar el cliente TypeScript cuando cambie la API:
-
-  ```bash
-  ./sh/api_gen.sh
-  ```
-
-  Genera `web/openapi.json` desde FastAPI y el SDK en `web/src/api/generated/`.
-
-- El frontend habla con `http://localhost:8080` por defecto. Para cambiarlo, define `VITE_API_URL` en `web/.env`.
-
-- Logs útiles:
-  - `log/backend_server.log`: accesos HTTP.
-  - `log/backend_server.error.log`: errores y arranque/parada.
-  - `log/auth.log`: intentos de login.
-  - `log/web_server.log` y `log/web_server.error.log`: Vite.
-
----
-
-## Despliegue
-
-La web se publica en `https://studyist.lucabae.com` mediante Cloudflare Pages y la API en `https://studyist-api.lucabae.com` mediante Cloudflare Tunnel hacia `127.0.0.1:8080`.
-
-El proyecto de Pages es de tipo Direct Upload, así que Cloudflare no compila desde el repositorio. El despliegue lo hace GitHub Actions en cada push a `main`: `.github/workflows/deploy.yml` compila `web/` y sube `web/dist` con Wrangler. Requiere el secret `CLOUDFLARE_API_TOKEN` (permiso «Cloudflare Pages: Edit») en *Settings → Secrets and variables → Actions*.
-
-La URL de la API en producción se define en `web/.env.production` (`VITE_API_URL`). Para desplegar a mano: `npx wrangler pages deploy dist --project-name=studyist` desde `web/`.
-
----
-
-## Problemas frecuentes
-
-**El login siempre dice "Contraseña incorrecta".**
-No existe `server/auth/password.hash`, o el `User-Agent` de tu navegador no está en `device.json`. Ejecuta `./sh/hash_password.sh` y revisa `log/auth.log`: ahí sí se distingue `sin-password-configurada` de `dispositivo-bloqueado`.
-
-**El login devuelve 500.**
-Falta `JWT_SECRET` en `.env`. Genera uno con `openssl rand -hex 32`.
-
-**El chat o las flashcards dan 502.**
-Falta `OPENROUTER_API_KEY`, no tiene saldo o el modelo no está disponible.
-
-**Subir un archivo devuelve 415.**
-Solo se aceptan imágenes raster (PNG, JPEG, WebP...) y PDF. No valen SVG, HTML, TXT, DOCX ni un `.png` que por dentro no sea una imagen.
-
-**El archivo supera 30 MB.**
-Devuelve 413. El límite es por archivo y hay otro global de 32 MB por petición.
-
-**"La ejecución de código está desactivada".**
-Es intencionado. El runner de Python no tiene sandbox; se dejó apagado a propósito.
-
-**Los eventos no aparecen en iCloud.**
-Revisa `ICLOUD_MAIL`, `ICLOUD_APP_PASSWORD` y que `ICLOUD_CALENDAR_NAME` coincida exactamente con el nombre del calendario. Aunque CalDAV falle, el evento se guarda en local.
-
-**He actualizado el proyecto y faltan columnas en la base de datos.**
-`db/init.py` solo crea tablas que no existen; no migra columnas de tablas ya creadas. Si vienes de una versión anterior, tendrás que aplicar el `ALTER TABLE` correspondiente sobre `db/db.sqlite3` (o empezar con una base de datos nueva).
+MIT. See [LICENSE](LICENSE).

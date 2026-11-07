@@ -8,6 +8,14 @@ A single-user, local-first workspace for university study: courses and topics, n
 
 There is no sign-up and no multi-user logic. The app runs on your machine, is protected by one password, and is not meant to be exposed to the internet.
 
+## Screens
+
+![Studyist home: AI chat with saved conversations](assets/screens/home.png)
+
+![Subject page: topic tree with progress and materials](assets/screens/subject.png)
+
+![Flashcard sets and the review session](assets/screens/flashcards.png)
+
 ## What it does
 
 - **Courses and topics** with a nested structure and per-topic file attachments.

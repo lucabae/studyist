@@ -18,10 +18,6 @@ There is no sign-up and no multi-user logic. The app runs on your machine, is pr
 - **Exercises**: stored test cases with an optional sandboxed runner (disabled by default).
 - **Auth**: one local password (PBKDF2-HMAC-SHA256, 600k iterations) and JWT access/refresh tokens.
 
-## Screenshots
-
-The interface is a React SPA: dashboard, courses, topics, files, flashcards, calendar and chat. Screenshots are not committed yet; run it locally with the steps below.
-
 ## Stack
 
 | Layer | Technology |

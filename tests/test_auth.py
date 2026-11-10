@@ -278,3 +278,12 @@ def test_query_token_is_not_left_for_the_access_log() -> None:
     scope = {"query_string": b"token=abc123&v=2"}
     middleware._strip_query_token(scope)
     assert scope["query_string"] == b"v=2"
+
+
+def test_percent_encoded_query_token_is_not_left_for_the_access_log() -> None:
+    """La clave codificada autentica igual, asi que tambien debe borrarse."""
+    from server.auth import middleware
+
+    scope = {"query_string": b"%74oken=abc123&v=2"}
+    middleware._strip_query_token(scope)
+    assert scope["query_string"] == b"v=2"

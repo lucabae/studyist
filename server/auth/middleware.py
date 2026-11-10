@@ -5,7 +5,7 @@ server/main.py): asi los 401 salen con cabeceras CORS y cualquier fallo
 inesperado de aqui se convierte en un 500 JSON.
 """
 
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, unquote_plus
 
 from fastapi.responses import JSONResponse
 
@@ -53,14 +53,19 @@ def _strip_query_token(scope) -> None:  # noqa: ANN001 - ASGI scope
     el token: se elimina dejando los demas parametros intactos.
     """
     raw = scope.get("query_string") or b""
-    if b"token=" not in raw:
+    if not raw:
         return
 
-    kept = [
-        part
-        for part in raw.split(b"&")
-        if part and part.split(b"=", 1)[0].lower() != b"token"
-    ]
+    kept = []
+    for part in raw.split(b"&"):
+        if not part:
+            continue
+        # parse_qs decodifica la clave, asi que hay que hacer lo mismo aqui:
+        # si no, ?%74oken=<access> autentica pero sobrevive en el access log.
+        raw_key = part.split(b"=", 1)[0]
+        key = unquote_plus(raw_key.decode("latin-1"))
+        if key.lower() != "token":
+            kept.append(part)
     scope["query_string"] = b"&".join(kept)
 
 

@@ -117,6 +117,12 @@ def save(upload_filename: str, content: bytes) -> dict:
     logger.info("Archivo guardado en %s (%s bytes)", candidate, len(content))
 
     thumbnail = generate_thumb(candidate)
+    page_count = None
+    if mime_type == "application/pdf":
+        try:
+            page_count = count_pdf_pages(candidate)
+        except Exception:
+            logger.exception("No se pudo contar las páginas del PDF %s", candidate)
 
     return {
         "name": name,
@@ -124,8 +130,32 @@ def save(upload_filename: str, content: bytes) -> dict:
         "path": candidate.relative_to(FILES_ROOT).as_posix(),
         "size": len(content),
         "thumbnail": thumbnail,
+        "page_count": page_count,
         "hash": digest,
     }
+
+
+def count_pdf_pages(path: Path) -> int:
+    """Cuenta las páginas de un PDF guardado."""
+    import pypdfium2 as pdfium
+
+    pdf = pdfium.PdfDocument(str(path))
+    try:
+        return len(pdf)
+    finally:
+        pdf.close()
+
+
+def ensure_page_count(row) -> int | None:
+    """Calcula una vez el número de páginas de un PDF antiguo."""
+    if row.type != "application/pdf" or row.page_count is not None:
+        return row.page_count
+    try:
+        row.page_count = count_pdf_pages(resolve(row.path))
+    except Exception:
+        logger.exception("No se pudo contar las páginas del PDF %s", row.path)
+        return None
+    return row.page_count
 
 
 def extract_text(relative_path: str, mime_type: str) -> str:

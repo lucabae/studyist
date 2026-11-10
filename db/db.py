@@ -204,6 +204,7 @@ class File(Base):
     path: Mapped[str] = mapped_column(String(500), nullable=False, unique=True)
     size: Mapped[int] = mapped_column(Integer, nullable=False)
     thumbnail: Mapped[str | None] = mapped_column(String(500))
+    page_count: Mapped[int | None] = mapped_column(Integer)
     # sha256 del contenido: evita guardar dos veces el mismo archivo.
     hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
 
@@ -291,6 +292,12 @@ class Tema(Base):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
+    teacher_progress: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    student_progress: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
 
     asignatura: Mapped["Asignatura"] = relationship(back_populates="temas")
     files: Mapped[list["File"]] = relationship(secondary=tema_file, lazy="selectin")

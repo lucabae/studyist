@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   deleteAsignaturaAsignaturaAsignaturaIdDelete,
   listAsignaturasAsignaturaGet,
+  listFilesFilesGet,
+  listTemasTemaGet,
   type AsignaturaRead,
+  type FileRead,
+  type TemaRead,
 } from "../../api/generated";
 import { Button, EmptyState, Spinner, useToast } from "../../components";
 import { PageHeader } from "../../layout/PageHeader";
@@ -11,6 +15,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { ErrorNotice } from "./ErrorNotice";
 import { SubjectCard } from "./SubjectCard";
 import { SubjectFormModal } from "./SubjectFormModal";
+import { subjectProgress, type ProgressStats } from "./subjectProgress";
 
 type Status = "loading" | "ready" | "error";
 
@@ -23,6 +28,8 @@ type Status = "loading" | "ready" | "error";
 export default function SubjectsPage() {
   const { toast } = useToast();
   const [subjects, setSubjects] = useState<AsignaturaRead[]>([]);
+  const [topics, setTopics] = useState<TemaRead[]>([]);
+  const [files, setFiles] = useState<FileRead[]>([]);
   const [status, setStatus] = useState<Status>("loading");
   const [error, setError] = useState<string | null>(null);
 
@@ -33,15 +40,32 @@ export default function SubjectsPage() {
 
   const load = useCallback(async () => {
     setStatus("loading");
-    const { data, error: requestError } = await listAsignaturasAsignaturaGet();
+    const [subjectsResult, topicsResult, filesResult] = await Promise.all([
+      listAsignaturasAsignaturaGet(),
+      listTemasTemaGet(),
+      listFilesFilesGet({ query: { limit: 500 } }),
+    ]);
 
-    if (requestError || !data) {
-      setError(apiErrorMessage(requestError));
+    if (
+      subjectsResult.error ||
+      topicsResult.error ||
+      filesResult.error ||
+      !subjectsResult.data ||
+      !topicsResult.data ||
+      !filesResult.data
+    ) {
+      setError(
+        apiErrorMessage(
+          subjectsResult.error ?? topicsResult.error ?? filesResult.error,
+        ),
+      );
       setStatus("error");
       return;
     }
 
-    setSubjects(data);
+    setSubjects(subjectsResult.data);
+    setTopics(topicsResult.data);
+    setFiles(filesResult.data);
     setStatus("ready");
   }, []);
 
@@ -89,6 +113,29 @@ export default function SubjectsPage() {
     toast("Asignatura borrada", "success");
   }
 
+  const filesById = useMemo(
+    () => new Map(files.map((file) => [file.id, file])),
+    [files],
+  );
+
+  const progressBySubject = useMemo(() => {
+    const topicsBySubject = new Map<number, TemaRead[]>();
+    for (const topic of topics) {
+      const bucket = topicsBySubject.get(topic.asignatura_id);
+      if (bucket) bucket.push(topic);
+      else topicsBySubject.set(topic.asignatura_id, [topic]);
+    }
+
+    const result = new Map<number, ProgressStats>();
+    for (const subject of subjects) {
+      result.set(
+        subject.id,
+        subjectProgress(topicsBySubject.get(subject.id) ?? [], filesById),
+      );
+    }
+    return result;
+  }, [subjects, topics, filesById]);
+
   return (
     <div className="mx-auto w-full max-w-5xl px-5 py-6 sm:py-8">
       <PageHeader
@@ -132,6 +179,7 @@ export default function SubjectsPage() {
               <li key={subject.id} className="min-w-0">
                 <SubjectCard
                   subject={subject}
+                  progress={progressBySubject.get(subject.id)}
                   onEdit={() => openEdit(subject)}
                   onDelete={() => setDeleting(subject)}
                 />

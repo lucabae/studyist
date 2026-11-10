@@ -209,7 +209,18 @@ class FileRead(BaseModel):
     size: int
     thumbnail: str | None
     page_count: int | None
+    student_progress: int = Field(
+        default=0,
+        ge=0,
+        description="Paginas avanzadas por el usuario en el archivo (ejercicios)",
+    )
     hash: str = Field(description="sha256 del contenido, sirve para deduplicar")
+
+
+class FileProgressUpdate(BaseModel):
+    """Payload para guardar por que pagina va el usuario en un archivo."""
+
+    student_progress: int = Field(ge=0)
 
 
 class FileUpdate(BaseModel):

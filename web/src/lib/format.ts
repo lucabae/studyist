@@ -89,3 +89,17 @@ export function formatRelative(value: string | number | Date): string {
   // Mas alla de una semana, fecha corta (dd/mm).
   return shortDateFormatter.format(date);
 }
+
+/**
+ * Minutos de trabajo como texto corto: "45 min", "2 h", "3 h 20 min".
+ * Redondea al minuto; los negativos se tratan como 0.
+ */
+export function formatMinutes(minutes: number): string {
+  if (!Number.isFinite(minutes) || minutes <= 0) return "0 min";
+  const total = Math.round(minutes);
+  if (total < 60) return `${total} min`;
+
+  const hours = Math.floor(total / 60);
+  const rest = total % 60;
+  return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
+}

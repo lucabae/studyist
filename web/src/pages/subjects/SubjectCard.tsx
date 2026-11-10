@@ -1,10 +1,13 @@
 import { Link } from "react-router-dom";
 import type { AsignaturaRead } from "../../api/generated";
-import { Card, IconButton } from "../../components";
+import { Card, IconButton, ProgressBar } from "../../components";
+import { formatMinutes } from "../../lib/format";
 import { colorToHex } from "./subjectColor";
+import type { ProgressStats } from "./subjectProgress";
 
 export interface SubjectCardProps {
   subject: AsignaturaRead;
+  progress?: ProgressStats;
   onEdit: () => void;
   onDelete: () => void;
 }
@@ -14,8 +17,9 @@ export interface SubjectCardProps {
  * para que toda la superficie sea clicable sin anidar botones dentro del
  * enlace (las acciones quedan por encima con `z-10`).
  */
-export function SubjectCard({ subject, onEdit, onDelete }: SubjectCardProps) {
+export function SubjectCard({ subject, progress, onEdit, onDelete }: SubjectCardProps) {
   const temas = subject.tema_count ?? 0;
+  const hasProgress = (progress?.totalMinutes ?? 0) > 0;
 
   return (
     <Card className="relative overflow-hidden transition-colors duration-150 hover:border-onyx-inkFaint/50 hover:bg-onyx-surfaceHover">
@@ -41,6 +45,20 @@ export function SubjectCard({ subject, onEdit, onDelete }: SubjectCardProps) {
           <p className="mt-1 text-[12px] text-onyx-inkFaint">
             {temas} {temas === 1 ? "tema" : "temas"}
           </p>
+
+          {hasProgress && progress && (
+            <div className="mt-3">
+              <div className="flex items-baseline justify-between gap-2 text-[11px]">
+                <span className="tabular-nums text-onyx-inkMuted">
+                  {progress.percent}% completado
+                </span>
+                <span className="tabular-nums text-onyx-inkFaint">
+                  Quedan ≈ {formatMinutes(progress.remainingMinutes)}
+                </span>
+              </div>
+              <ProgressBar value={progress.percent} className="mt-1" />
+            </div>
+          )}
         </div>
 
         <div className="relative z-10 flex shrink-0 items-center gap-0.5">

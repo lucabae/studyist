@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   deleteTemaTemaTemaIdDelete,
   getAsignaturaAsignaturaAsignaturaIdGet,
+  listFilesFilesGet,
   listTemasTemaGet,
   type AsignaturaRead,
+  type FileRead,
   type TemaRead,
 } from "../../api/generated";
 import { Button, EmptyState, Spinner, useToast } from "../../components";
@@ -14,8 +16,10 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { ErrorNotice } from "./ErrorNotice";
 import { NewTopicModal } from "./NewTopicModal";
 import { NotFoundState } from "./NotFoundState";
+import { ProgressSummary } from "./ProgressSummary";
 import { SubjectFormModal } from "./SubjectFormModal";
 import { colorToHex } from "./subjectColor";
+import { subjectProgress, topicProgress } from "./subjectProgress";
 import { collectSubtreeIds } from "./topicTree";
 import { TopicTimeline } from "./TopicTimeline";
 
@@ -32,6 +36,7 @@ export default function SubjectPage() {
 
   const [subject, setSubject] = useState<AsignaturaRead | null>(null);
   const [topics, setTopics] = useState<TemaRead[]>([]);
+  const [files, setFiles] = useState<FileRead[]>([]);
   const [status, setStatus] = useState<Status>("loading");
   const [error, setError] = useState<string | null>(null);
 
@@ -47,9 +52,12 @@ export default function SubjectPage() {
     }
 
     setStatus("loading");
-    const [subjectResult, topicsResult] = await Promise.all([
+    const [subjectResult, topicsResult, filesResult] = await Promise.all([
       getAsignaturaAsignaturaAsignaturaIdGet({ path: { asignatura_id: asignaturaId } }),
       listTemasTemaGet({ query: { asignatura_id: asignaturaId } }),
+      // El progreso de los ejercicios vive en cada archivo. El tope de la API
+      // es 500 y esta app es de un solo usuario: una sola peticion basta.
+      listFilesFilesGet({ query: { limit: 500 } }),
     ]);
 
     if (subjectResult.response?.status === 404) {
@@ -57,14 +65,24 @@ export default function SubjectPage() {
       return;
     }
 
-    if (subjectResult.error || topicsResult.error || !subjectResult.data || !topicsResult.data) {
-      setError(apiErrorMessage(subjectResult.error ?? topicsResult.error));
+    if (
+      subjectResult.error ||
+      topicsResult.error ||
+      filesResult.error ||
+      !subjectResult.data ||
+      !topicsResult.data ||
+      !filesResult.data
+    ) {
+      setError(
+        apiErrorMessage(subjectResult.error ?? topicsResult.error ?? filesResult.error),
+      );
       setStatus("error");
       return;
     }
 
     setSubject(subjectResult.data);
     setTopics(topicsResult.data);
+    setFiles(filesResult.data);
     setStatus("ready");
   }, [asignaturaId]);
 
@@ -109,6 +127,25 @@ export default function SubjectPage() {
   }
 
   const deletingChildCount = deleting?.child_ids?.length ?? 0;
+
+  const filesById = useMemo(
+    () => new Map(files.map((file) => [file.id, file])),
+    [files],
+  );
+  const progressByTopic = useMemo(
+    () => new Map(topics.map((topic) => [topic.id, topicProgress(topic, filesById)])),
+    [topics, filesById],
+  );
+  const overall = useMemo(
+    () => subjectProgress(topics, filesById),
+    [topics, filesById],
+  );
+
+  const handleFileSaved = useCallback((saved: FileRead) => {
+    setFiles((current) =>
+      current.map((file) => (file.id === saved.id ? saved : file)),
+    );
+  }, []);
 
   return (
     <div className="mx-auto w-full max-w-3xl px-5 py-6 sm:py-8">
@@ -160,6 +197,8 @@ export default function SubjectPage() {
             }
           />
 
+          <ProgressSummary stats={overall} className="mt-5" />
+
           <section className="mt-7" aria-labelledby="temas-heading">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 id="temas-heading" className="text-[15px] font-medium text-onyx-ink">
@@ -180,7 +219,13 @@ export default function SubjectPage() {
                   action={<Button onClick={() => setNewTopicOpen(true)}>Crear tema</Button>}
                 />
               ) : (
-                <TopicTimeline topics={topics} onDelete={setDeleting} />
+                <TopicTimeline
+                  topics={topics}
+                  filesById={filesById}
+                  progressByTopic={progressByTopic}
+                  onFileSaved={handleFileSaved}
+                  onDelete={setDeleting}
+                />
               )}
             </div>
           </section>

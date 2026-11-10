@@ -493,6 +493,18 @@ export type EventoUpdate = {
 };
 
 /**
+ * FileProgressUpdate
+ *
+ * Payload para guardar por que pagina va el usuario en un archivo.
+ */
+export type FileProgressUpdate = {
+    /**
+     * Student Progress
+     */
+    student_progress: number;
+};
+
+/**
  * FileRead
  *
  * Respuesta con la fila completa. path es relativo a /files.
@@ -530,6 +542,12 @@ export type FileRead = {
      * Page Count
      */
     page_count: number | null;
+    /**
+     * Student Progress
+     *
+     * Paginas avanzadas por el usuario en el archivo (ejercicios)
+     */
+    student_progress?: number;
     /**
      * Hash
      *
@@ -2129,6 +2147,36 @@ export type UpdateFileFilesFileIdPutResponses = {
 };
 
 export type UpdateFileFilesFileIdPutResponse = UpdateFileFilesFileIdPutResponses[keyof UpdateFileFilesFileIdPutResponses];
+
+export type UpdateFileProgressFilesFileIdProgressPutData = {
+    body: FileProgressUpdate;
+    path: {
+        /**
+         * File Id
+         */
+        file_id: number;
+    };
+    query?: never;
+    url: '/files/{file_id}/progress';
+};
+
+export type UpdateFileProgressFilesFileIdProgressPutErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateFileProgressFilesFileIdProgressPutError = UpdateFileProgressFilesFileIdProgressPutErrors[keyof UpdateFileProgressFilesFileIdProgressPutErrors];
+
+export type UpdateFileProgressFilesFileIdProgressPutResponses = {
+    /**
+     * Successful Response
+     */
+    200: FileRead;
+};
+
+export type UpdateFileProgressFilesFileIdProgressPutResponse = UpdateFileProgressFilesFileIdProgressPutResponses[keyof UpdateFileProgressFilesFileIdProgressPutResponses];
 
 export type ListFlashcardSetsFlashcardSetGetData = {
     body?: never;

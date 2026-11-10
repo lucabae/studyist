@@ -14,6 +14,7 @@ import {
   FileDropZone,
   FileRow,
   Input,
+  Modal,
   Spinner,
   useToast,
 } from "../../components";
@@ -78,8 +79,8 @@ export default function FilesPage() {
   const [renaming, setRenaming] = useState<FileRead | null>(null);
   const [deleting, setDeleting] = useState<FileRead | null>(null);
   const [addingToTema, setAddingToTema] = useState(false);
-  // Tipo que se aplica a los archivos que se suban a continuacion.
-  const [uploadKind, setUploadKind] = useState<FileDocKind>("otros");
+  const [pendingUploadFiles, setPendingUploadFiles] = useState<File[]>([]);
+  const [pendingUploadKind, setPendingUploadKind] = useState<FileDocKind>("otros");
 
   const dropZoneRef = useRef<HTMLDivElement>(null);
 
@@ -133,6 +134,20 @@ export default function FilesPage() {
   /** Abre el selector nativo desde los CTA sin duplicar el input de la zona. */
   const openPicker = () => {
     dropZoneRef.current?.querySelector<HTMLInputElement>('input[type="file"]')?.click();
+  };
+
+  const askUploadKind = (incoming: File[]) => {
+    if (incoming.length === 0) return;
+    setPendingUploadFiles(incoming);
+    setPendingUploadKind("otros");
+  };
+
+  const cancelUpload = () => setPendingUploadFiles([]);
+
+  const confirmUpload = () => {
+    if (pendingUploadFiles.length === 0) return;
+    upload.enqueue(pendingUploadFiles, pendingUploadKind);
+    setPendingUploadFiles([]);
   };
 
   const resetFilters = () => {
@@ -205,28 +220,10 @@ export default function FilesPage() {
       </div>
 
       <div ref={dropZoneRef} className="mt-4">
-        <div
-          role="group"
-          aria-label="Tipo de los archivos que vas a subir"
-          className="mb-2 flex flex-wrap items-center gap-2"
-        >
-          <span className="text-[13px] font-medium text-onyx-inkMuted">
-            Tipo del documento
-          </span>
-          {FILE_DOC_KIND_OPTIONS.map((option) => (
-            <Chip
-              key={option.value}
-              active={uploadKind === option.value}
-              onClick={() => setUploadKind(option.value)}
-            >
-              {option.label}
-            </Chip>
-          ))}
-        </div>
         <FileDropZone
-          onFiles={(incoming) => upload.enqueue(incoming, uploadKind)}
+          onFiles={askUploadKind}
           accept="image/*,application/pdf"
-          hint={`Se guardarán como ${FILE_DOC_KIND_LABELS[uploadKind].toLowerCase()} · imágenes o PDF · hasta 30 MB por archivo · también puedes pegarlos`}
+          hint="Elegirás el tipo de documento antes de subir · imágenes o PDF · hasta 30 MB por archivo"
         />
       </div>
 
@@ -357,6 +354,55 @@ export default function FilesPage() {
           toast("Archivo borrado.", "success");
         }}
       />
+
+      <Modal
+        open={pendingUploadFiles.length > 0}
+        onClose={cancelUpload}
+        title="Tipo de documento"
+        description="Elige el tipo para los archivos seleccionados antes de subirlos."
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={cancelUpload}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmUpload}>Subir</Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <ul
+            aria-label="Archivos seleccionados"
+            className="max-h-32 overflow-y-auto rounded-lg border border-onyx-line bg-onyx-bg/40 px-3 py-2"
+          >
+            {pendingUploadFiles.map((file, index) => (
+              <li
+                key={`${file.name}-${file.size}-${file.lastModified}-${index}`}
+                className="break-all py-1 text-[13px] text-onyx-inkMuted"
+              >
+                {file.name}
+              </li>
+            ))}
+          </ul>
+
+          <div className="flex min-w-0 flex-col gap-2">
+            <p className="text-[13px] font-medium text-onyx-inkMuted">
+              Tipo del documento
+            </p>
+            <div role="group" aria-label="Tipo del documento" className="flex flex-wrap gap-2">
+              {FILE_DOC_KIND_OPTIONS.map((option) => (
+                <Chip
+                  key={option.value}
+                  active={pendingUploadKind === option.value}
+                  onClick={() => setPendingUploadKind(option.value)}
+                >
+                  {option.label}
+                </Chip>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

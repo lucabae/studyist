@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddFlashcardFlashcardSetSetIdFlashcardsPostData, AddFlashcardFlashcardSetSetIdFlashcardsPostErrors, AddFlashcardFlashcardSetSetIdFlashcardsPostResponses, ClearMessagesChatMessagesDeleteData, ClearMessagesChatMessagesDeleteErrors, ClearMessagesChatMessagesDeleteResponses, CreateAsignaturaAsignaturaPostData, CreateAsignaturaAsignaturaPostErrors, CreateAsignaturaAsignaturaPostResponses, CreateEventoEventoPostData, CreateEventoEventoPostErrors, CreateEventoEventoPostResponses, CreateFileFilesPostData, CreateFileFilesPostErrors, CreateFileFilesPostResponses, CreateFlashcardFlashcardPostData, CreateFlashcardFlashcardPostErrors, CreateFlashcardFlashcardPostResponses, CreateFlashcardSetFlashcardSetPostData, CreateFlashcardSetFlashcardSetPostErrors, CreateFlashcardSetFlashcardSetPostResponses, CreateFlashcardSetFromFilesFlashcardSetFromFilesPostData, CreateFlashcardSetFromFilesFlashcardSetFromFilesPostErrors, CreateFlashcardSetFromFilesFlashcardSetFromFilesPostResponses, CreateTemaTemaPostData, CreateTemaTemaPostErrors, CreateTemaTemaPostResponses, DeleteAsignaturaAsignaturaAsignaturaIdDeleteData, DeleteAsignaturaAsignaturaAsignaturaIdDeleteErrors, DeleteAsignaturaAsignaturaAsignaturaIdDeleteResponses, DeleteEjercicioEjercicioEjercicioIdDeleteData, DeleteEjercicioEjercicioEjercicioIdDeleteErrors, DeleteEjercicioEjercicioEjercicioIdDeleteResponses, DeleteEventoEventoEventoIdDeleteData, DeleteEventoEventoEventoIdDeleteErrors, DeleteEventoEventoEventoIdDeleteResponses, DeleteFileFilesFileIdDeleteData, DeleteFileFilesFileIdDeleteErrors, DeleteFileFilesFileIdDeleteResponses, DeleteFlashcardFlashcardFlashcardIdDeleteData, DeleteFlashcardFlashcardFlashcardIdDeleteErrors, DeleteFlashcardFlashcardFlashcardIdDeleteResponses, DeleteFlashcardSetFlashcardSetSetIdDeleteData, DeleteFlashcardSetFlashcardSetSetIdDeleteErrors, DeleteFlashcardSetFlashcardSetSetIdDeleteResponses, DeleteTemaTemaTemaIdDeleteData, DeleteTemaTemaTemaIdDeleteErrors, DeleteTemaTemaTemaIdDeleteResponses, DeleteThreadChatThreadsThreadIdDeleteData, DeleteThreadChatThreadsThreadIdDeleteErrors, DeleteThreadChatThreadsThreadIdDeleteResponses, GenerateExerciseStudyExercisePostData, GenerateExerciseStudyExercisePostErrors, GenerateExerciseStudyExercisePostResponses, GenerateFlashcardsStudyFlashcardsPostData, GenerateFlashcardsStudyFlashcardsPostErrors, GenerateFlashcardsStudyFlashcardsPostResponses, GetAsignaturaAsignaturaAsignaturaIdGetData, GetAsignaturaAsignaturaAsignaturaIdGetErrors, GetAsignaturaAsignaturaAsignaturaIdGetResponses, GetEjercicioEjercicioEjercicioIdGetData, GetEjercicioEjercicioEjercicioIdGetErrors, GetEjercicioEjercicioEjercicioIdGetResponses, GetEventoEventoEventoIdGetData, GetEventoEventoEventoIdGetErrors, GetEventoEventoEventoIdGetResponses, GetFileFilesFileIdGetData, GetFileFilesFileIdGetErrors, GetFileFilesFileIdGetResponses, GetFlashcardFlashcardFlashcardIdGetData, GetFlashcardFlashcardFlashcardIdGetErrors, GetFlashcardFlashcardFlashcardIdGetResponses, GetFlashcardSetFlashcardSetSetIdGetData, GetFlashcardSetFlashcardSetSetIdGetErrors, GetFlashcardSetFlashcardSetSetIdGetResponses, GetTemaTemaTemaIdGetData, GetTemaTemaTemaIdGetErrors, GetTemaTemaTemaIdGetResponses, GetThreadChatThreadGetData, GetThreadChatThreadGetErrors, GetThreadChatThreadGetResponses, ListAsignaturasAsignaturaGetData, ListAsignaturasAsignaturaGetResponses, ListEjerciciosEjercicioGetData, ListEjerciciosEjercicioGetErrors, ListEjerciciosEjercicioGetResponses, ListEventosEventoGetData, ListEventosEventoGetErrors, ListEventosEventoGetResponses, ListFilesFilesGetData, ListFilesFilesGetErrors, ListFilesFilesGetResponses, ListFlashcardSetsFlashcardSetGetData, ListFlashcardSetsFlashcardSetGetResponses, ListFlashcardsFlashcardGetData, ListFlashcardsFlashcardGetResponses, ListMessagesChatMessagesGetData, ListMessagesChatMessagesGetErrors, ListMessagesChatMessagesGetResponses, ListTemasTemaGetData, ListTemasTemaGetErrors, ListTemasTemaGetResponses, ListThreadsChatThreadsGetData, ListThreadsChatThreadsGetResponses, LoginAuthLoginPostData, LoginAuthLoginPostErrors, LoginAuthLoginPostResponses, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponses, MarkSeenFlashcardFlashcardIdSeenPostData, MarkSeenFlashcardFlashcardIdSeenPostErrors, MarkSeenFlashcardFlashcardIdSeenPostResponses, MeAuthMeGetData, MeAuthMeGetResponses, RefreshAuthRefreshPostData, RefreshAuthRefreshPostErrors, RefreshAuthRefreshPostResponses, ReviewFlashcardSetFlashcardSetSetIdReviewGetData, ReviewFlashcardSetFlashcardSetSetIdReviewGetErrors, ReviewFlashcardSetFlashcardSetSetIdReviewGetResponses, ReviewFlashcardsFlashcardReviewGetData, ReviewFlashcardsFlashcardReviewGetErrors, ReviewFlashcardsFlashcardReviewGetResponses, RunEjercicioEjercicioEjercicioIdRunPostData, RunEjercicioEjercicioEjercicioIdRunPostErrors, RunEjercicioEjercicioEjercicioIdRunPostResponses, SendMessageChatMessagesPostData, SendMessageChatMessagesPostErrors, SendMessageChatMessagesPostResponses, SendMessageStreamChatMessagesStreamPostData, SendMessageStreamChatMessagesStreamPostErrors, SendMessageStreamChatMessagesStreamPostResponses, SendOpenrouterSendPostData, SendOpenrouterSendPostErrors, SendOpenrouterSendPostResponses, UpdateAsignaturaAsignaturaAsignaturaIdPutData, UpdateAsignaturaAsignaturaAsignaturaIdPutErrors, UpdateAsignaturaAsignaturaAsignaturaIdPutResponses, UpdateEventoEventoEventoIdPutData, UpdateEventoEventoEventoIdPutErrors, UpdateEventoEventoEventoIdPutResponses, UpdateFileFilesFileIdPutData, UpdateFileFilesFileIdPutErrors, UpdateFileFilesFileIdPutResponses, UpdateFlashcardFlashcardFlashcardIdPutData, UpdateFlashcardFlashcardFlashcardIdPutErrors, UpdateFlashcardFlashcardFlashcardIdPutResponses, UpdateFlashcardSetFlashcardSetSetIdPutData, UpdateFlashcardSetFlashcardSetSetIdPutErrors, UpdateFlashcardSetFlashcardSetSetIdPutResponses, UpdateTemaTemaTemaIdPutData, UpdateTemaTemaTemaIdPutErrors, UpdateTemaTemaTemaIdPutResponses } from './types.gen';
+import type { AddFlashcardFlashcardSetSetIdFlashcardsPostData, AddFlashcardFlashcardSetSetIdFlashcardsPostErrors, AddFlashcardFlashcardSetSetIdFlashcardsPostResponses, ClearMessagesChatMessagesDeleteData, ClearMessagesChatMessagesDeleteErrors, ClearMessagesChatMessagesDeleteResponses, CreateAsignaturaAsignaturaPostData, CreateAsignaturaAsignaturaPostErrors, CreateAsignaturaAsignaturaPostResponses, CreateEventoEventoPostData, CreateEventoEventoPostErrors, CreateEventoEventoPostResponses, CreateFileFilesPostData, CreateFileFilesPostErrors, CreateFileFilesPostResponses, CreateFlashcardFlashcardPostData, CreateFlashcardFlashcardPostErrors, CreateFlashcardFlashcardPostResponses, CreateFlashcardSetFlashcardSetPostData, CreateFlashcardSetFlashcardSetPostErrors, CreateFlashcardSetFlashcardSetPostResponses, CreateFlashcardSetFromFilesFlashcardSetFromFilesPostData, CreateFlashcardSetFromFilesFlashcardSetFromFilesPostErrors, CreateFlashcardSetFromFilesFlashcardSetFromFilesPostResponses, CreateTemaTemaPostData, CreateTemaTemaPostErrors, CreateTemaTemaPostResponses, DeleteAsignaturaAsignaturaAsignaturaIdDeleteData, DeleteAsignaturaAsignaturaAsignaturaIdDeleteErrors, DeleteAsignaturaAsignaturaAsignaturaIdDeleteResponses, DeleteEjercicioEjercicioEjercicioIdDeleteData, DeleteEjercicioEjercicioEjercicioIdDeleteErrors, DeleteEjercicioEjercicioEjercicioIdDeleteResponses, DeleteEventoEventoEventoIdDeleteData, DeleteEventoEventoEventoIdDeleteErrors, DeleteEventoEventoEventoIdDeleteResponses, DeleteFileFilesFileIdDeleteData, DeleteFileFilesFileIdDeleteErrors, DeleteFileFilesFileIdDeleteResponses, DeleteFlashcardFlashcardFlashcardIdDeleteData, DeleteFlashcardFlashcardFlashcardIdDeleteErrors, DeleteFlashcardFlashcardFlashcardIdDeleteResponses, DeleteFlashcardSetFlashcardSetSetIdDeleteData, DeleteFlashcardSetFlashcardSetSetIdDeleteErrors, DeleteFlashcardSetFlashcardSetSetIdDeleteResponses, DeleteTemaTemaTemaIdDeleteData, DeleteTemaTemaTemaIdDeleteErrors, DeleteTemaTemaTemaIdDeleteResponses, DeleteThreadChatThreadsThreadIdDeleteData, DeleteThreadChatThreadsThreadIdDeleteErrors, DeleteThreadChatThreadsThreadIdDeleteResponses, GenerateExerciseStudyExercisePostData, GenerateExerciseStudyExercisePostErrors, GenerateExerciseStudyExercisePostResponses, GenerateFlashcardsStudyFlashcardsPostData, GenerateFlashcardsStudyFlashcardsPostErrors, GenerateFlashcardsStudyFlashcardsPostResponses, GetAsignaturaAsignaturaAsignaturaIdGetData, GetAsignaturaAsignaturaAsignaturaIdGetErrors, GetAsignaturaAsignaturaAsignaturaIdGetResponses, GetEjercicioEjercicioEjercicioIdGetData, GetEjercicioEjercicioEjercicioIdGetErrors, GetEjercicioEjercicioEjercicioIdGetResponses, GetEventoEventoEventoIdGetData, GetEventoEventoEventoIdGetErrors, GetEventoEventoEventoIdGetResponses, GetFileFilesFileIdGetData, GetFileFilesFileIdGetErrors, GetFileFilesFileIdGetResponses, GetFlashcardFlashcardFlashcardIdGetData, GetFlashcardFlashcardFlashcardIdGetErrors, GetFlashcardFlashcardFlashcardIdGetResponses, GetFlashcardSetFlashcardSetSetIdGetData, GetFlashcardSetFlashcardSetSetIdGetErrors, GetFlashcardSetFlashcardSetSetIdGetResponses, GetTemaTemaTemaIdGetData, GetTemaTemaTemaIdGetErrors, GetTemaTemaTemaIdGetResponses, GetThreadChatThreadGetData, GetThreadChatThreadGetErrors, GetThreadChatThreadGetResponses, ListAsignaturasAsignaturaGetData, ListAsignaturasAsignaturaGetResponses, ListEjerciciosEjercicioGetData, ListEjerciciosEjercicioGetErrors, ListEjerciciosEjercicioGetResponses, ListEventosEventoGetData, ListEventosEventoGetErrors, ListEventosEventoGetResponses, ListFilesFilesGetData, ListFilesFilesGetErrors, ListFilesFilesGetResponses, ListFlashcardSetsFlashcardSetGetData, ListFlashcardSetsFlashcardSetGetResponses, ListFlashcardsFlashcardGetData, ListFlashcardsFlashcardGetResponses, ListMessagesChatMessagesGetData, ListMessagesChatMessagesGetErrors, ListMessagesChatMessagesGetResponses, ListTemasTemaGetData, ListTemasTemaGetErrors, ListTemasTemaGetResponses, ListThreadsChatThreadsGetData, ListThreadsChatThreadsGetResponses, LoginAuthLoginPostData, LoginAuthLoginPostErrors, LoginAuthLoginPostResponses, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponses, MarkSeenFlashcardFlashcardIdSeenPostData, MarkSeenFlashcardFlashcardIdSeenPostErrors, MarkSeenFlashcardFlashcardIdSeenPostResponses, MeAuthMeGetData, MeAuthMeGetResponses, RefreshAuthRefreshPostData, RefreshAuthRefreshPostErrors, RefreshAuthRefreshPostResponses, ReviewFlashcardSetFlashcardSetSetIdReviewGetData, ReviewFlashcardSetFlashcardSetSetIdReviewGetErrors, ReviewFlashcardSetFlashcardSetSetIdReviewGetResponses, ReviewFlashcardsFlashcardReviewGetData, ReviewFlashcardsFlashcardReviewGetErrors, ReviewFlashcardsFlashcardReviewGetResponses, RunEjercicioEjercicioEjercicioIdRunPostData, RunEjercicioEjercicioEjercicioIdRunPostErrors, RunEjercicioEjercicioEjercicioIdRunPostResponses, SendMessageChatMessagesPostData, SendMessageChatMessagesPostErrors, SendMessageChatMessagesPostResponses, SendMessageStreamChatMessagesStreamPostData, SendMessageStreamChatMessagesStreamPostErrors, SendMessageStreamChatMessagesStreamPostResponses, SendOpenrouterSendPostData, SendOpenrouterSendPostErrors, SendOpenrouterSendPostResponses, UpdateAsignaturaAsignaturaAsignaturaIdPutData, UpdateAsignaturaAsignaturaAsignaturaIdPutErrors, UpdateAsignaturaAsignaturaAsignaturaIdPutResponses, UpdateEventoEventoEventoIdPutData, UpdateEventoEventoEventoIdPutErrors, UpdateEventoEventoEventoIdPutResponses, UpdateFileFilesFileIdPutData, UpdateFileFilesFileIdPutErrors, UpdateFileFilesFileIdPutResponses, UpdateFileProgressFilesFileIdProgressPutData, UpdateFileProgressFilesFileIdProgressPutErrors, UpdateFileProgressFilesFileIdProgressPutResponses, UpdateFlashcardFlashcardFlashcardIdPutData, UpdateFlashcardFlashcardFlashcardIdPutErrors, UpdateFlashcardFlashcardFlashcardIdPutResponses, UpdateFlashcardSetFlashcardSetSetIdPutData, UpdateFlashcardSetFlashcardSetSetIdPutErrors, UpdateFlashcardSetFlashcardSetSetIdPutResponses, UpdateTemaTemaTemaIdPutData, UpdateTemaTemaTemaIdPutErrors, UpdateTemaTemaTemaIdPutResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -29,7 +29,8 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
  * la contrasena no vale o el dispositivo no esta permitido, devolver el mismo
  * 401 "Contrasena incorrecta." en los dos casos (el bloqueo por dispositivo no
  * se puede distinguir de un fallo de contrasena); emitir el par con
- * _token_pair.
+ * _token_pair. Cada intento se apunta en log/auth.log con su resultado real
+ * (ahi si se distingue dispositivo de contrasena).
  */
 export const loginAuthLoginPost = <ThrowOnError extends boolean = false>(options: Options<LoginAuthLoginPostData, ThrowOnError>): RequestResult<LoginAuthLoginPostResponses, LoginAuthLoginPostErrors, ThrowOnError> => (options.client ?? client).post<LoginAuthLoginPostResponses, LoginAuthLoginPostErrors, ThrowOnError>({
     url: '/auth/login',
@@ -460,14 +461,15 @@ export const listFilesFilesGet = <ThrowOnError extends boolean = false>(options?
  * Sube un archivo.
  *
  * Pasos: leer el contenido del UploadFile; si supera
- * files.MAX_UPLOAD_BYTES, devolver 413 antes de escribir nada; calcular el
- * hash con files.compute_hash y consultar si ya existe una fila con ese hash;
- * si existe, devolver 409 incluyendo el id del file existente; si no, llamar
- * a files.save para clasificarlo, escribirlo y generar el thumbnail; insertar
- * la fila con el kind elegido por el usuario (por defecto "otros"); flush para
- * tener el id (el trigger file_fts_insert ya creo la fila del indice con
- * content vacio); rellenar ese content con files.extract_text (texto plano o
- * texto del PDF); commit; devolver.
+ * files.MAX_UPLOAD_BYTES, devolver 413 antes de escribir nada; exigir nombre;
+ * validar con files.validate_upload que es una imagen raster o un PDF (415 si
+ * no); calcular el hash con files.compute_hash y consultar si ya existe una
+ * fila con ese hash; si existe, devolver 409 incluyendo el id del file
+ * existente; si no, llamar a files.save para clasificarlo, escribirlo y
+ * generar el thumbnail; insertar la fila con el kind elegido por el usuario
+ * (por defecto "otros"); flush para tener el id (el trigger file_fts_insert ya
+ * creo la fila del indice con content vacio); rellenar ese content con
+ * files.extract_text (texto del PDF); commit; devolver.
  *
  * El 409 lleva el id del archivo que ya existe para que el frontend pueda
  * reutilizarlo (por ejemplo, enlazarlo a un tema) sin resubir nada.
@@ -514,6 +516,27 @@ export const getFileFilesFileIdGet = <ThrowOnError extends boolean = false>(opti
  */
 export const updateFileFilesFileIdPut = <ThrowOnError extends boolean = false>(options: Options<UpdateFileFilesFileIdPutData, ThrowOnError>): RequestResult<UpdateFileFilesFileIdPutResponses, UpdateFileFilesFileIdPutErrors, ThrowOnError> => (options.client ?? client).put<UpdateFileFilesFileIdPutResponses, UpdateFileFilesFileIdPutErrors, ThrowOnError>({
     url: '/files/{file_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Update File Progress
+ *
+ * Guarda por que pagina del archivo va el usuario.
+ *
+ * Pasos: buscar la fila (404 si no existe); si es un PDF sin page_count
+ * calcularlo; rechazar con 400 un progreso mayor que sus paginas; guardar y
+ * hacer commit; devolver la fila.
+ *
+ * Lo usan los archivos de tipo ejercicio, que tienen su propia barra de
+ * progreso independiente del timeline del tema.
+ */
+export const updateFileProgressFilesFileIdProgressPut = <ThrowOnError extends boolean = false>(options: Options<UpdateFileProgressFilesFileIdProgressPutData, ThrowOnError>): RequestResult<UpdateFileProgressFilesFileIdProgressPutResponses, UpdateFileProgressFilesFileIdProgressPutErrors, ThrowOnError> => (options.client ?? client).put<UpdateFileProgressFilesFileIdProgressPutResponses, UpdateFileProgressFilesFileIdProgressPutErrors, ThrowOnError>({
+    url: '/files/{file_id}/progress',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -740,9 +763,9 @@ export const markSeenFlashcardFlashcardIdSeenPost = <ThrowOnError extends boolea
  * Envia un mensaje a un modelo.
  *
  * Pasos: llamar a openrouter.send con todos los campos del payload; devolver
- * content y model. Traducir ValueError y FileNotFoundError a HTTPException
- * 400 con el mensaje original (model_type desconocido o prompt inexistente) y
- * RuntimeError a 502 (fallo de OpenRouter).
+ * content y model. Los errores se loggean enteros (mensaje real, rutas,
+ * respuesta del proveedor) y al cliente le llega un mensaje generico: un 400
+ * si el payload no vale y un 502 si falla el proveedor.
  */
 export const sendOpenrouterSendPost = <ThrowOnError extends boolean = false>(options: Options<SendOpenrouterSendPostData, ThrowOnError>): RequestResult<SendOpenrouterSendPostResponses, SendOpenrouterSendPostErrors, ThrowOnError> => (options.client ?? client).post<SendOpenrouterSendPostResponses, SendOpenrouterSendPostErrors, ThrowOnError>({
     url: '/openrouter/send',
@@ -833,8 +856,9 @@ export const getEjercicioEjercicioEjercicioIdGet = <ThrowOnError extends boolean
  *
  * Ejecuta el codigo del usuario contra los test cases del ejercicio.
  *
- * Pasos: buscar el ejercicio (404); 400 si no es de programacion; montar la
- * lista de casos con input/expected tal cual estan guardados; llamar a
+ * Pasos: si EXERCISE_RUN_ENABLED es False, devolver 403 sin ejecutar nada;
+ * buscar el ejercicio (404); 400 si no es de programacion; montar la lista de
+ * casos con input/expected tal cual estan guardados; llamar a
  * python_runner.run_tests (subproceso aislado con timeout); devolver ok,
  * detalle por caso y error global. Un caso con input mal guardado se traduce
  * a 400.

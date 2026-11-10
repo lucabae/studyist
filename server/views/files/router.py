@@ -10,7 +10,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from db.db import File, get_session, tema_file
-from server.models import FileKind, FileRead, FileUpdate
+from server.models import FileKind, FileProgressUpdate, FileRead, FileUpdate
 from server.scripts import files
 
 logger = logging.getLogger(__name__)
@@ -171,6 +171,38 @@ def get_file(file_id: int, db: Session = Depends(get_session)) -> FileRead:
     if row.type == "application/pdf" and row.page_count is None:
         files.ensure_page_count(row)
         db.commit()
+    return row
+
+
+@router.put("/{file_id}/progress", response_model=FileRead)
+def update_file_progress(
+    file_id: int, payload: FileProgressUpdate, db: Session = Depends(get_session)
+) -> FileRead:
+    """Guarda por que pagina del archivo va el usuario.
+
+    Pasos: buscar la fila (404 si no existe); si es un PDF sin page_count
+    calcularlo; rechazar con 400 un progreso mayor que sus paginas; guardar y
+    hacer commit; devolver la fila.
+
+    Lo usan los archivos de tipo ejercicio, que tienen su propia barra de
+    progreso independiente del timeline del tema.
+    """
+    row = db.get(File, file_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"No existe el file {file_id}")
+
+    pages = row.page_count
+    if row.type == "application/pdf" and pages is None:
+        pages = files.ensure_page_count(row)
+
+    if pages is not None and payload.student_progress > pages:
+        raise HTTPException(
+            status_code=400,
+            detail=f"El progreso no puede superar las {pages} paginas del archivo",
+        )
+
+    row.student_progress = payload.student_progress
+    db.commit()
     return row
 
 

@@ -1452,6 +1452,59 @@
         }
       }
     },
+    "/files/{file_id}/progress": {
+      "put": {
+        "tags": [
+          "files"
+        ],
+        "summary": "Update File Progress",
+        "description": "Guarda por que pagina del archivo va el usuario.\n\nPasos: buscar la fila (404 si no existe); si es un PDF sin page_count\ncalcularlo; rechazar con 400 un progreso mayor que sus paginas; guardar y\nhacer commit; devolver la fila.\n\nLo usan los archivos de tipo ejercicio, que tienen su propia barra de\nprogreso independiente del timeline del tema.",
+        "operationId": "update_file_progress_files__file_id__progress_put",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "File Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FileProgressUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/flashcard_set": {
       "get": {
         "tags": [
@@ -3233,6 +3286,21 @@
         "title": "EventoUpdate",
         "description": "Payload de modificacion. La fecha queda fuera a proposito."
       },
+      "FileProgressUpdate": {
+        "properties": {
+          "student_progress": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Student Progress"
+          }
+        },
+        "type": "object",
+        "required": [
+          "student_progress"
+        ],
+        "title": "FileProgressUpdate",
+        "description": "Payload para guardar por que pagina va el usuario en un archivo."
+      },
       "FileRead": {
         "properties": {
           "id": {
@@ -3286,6 +3354,13 @@
               }
             ],
             "title": "Page Count"
+          },
+          "student_progress": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Student Progress",
+            "description": "Paginas avanzadas por el usuario en el archivo (ejercicios)",
+            "default": 0
           },
           "hash": {
             "type": "string",

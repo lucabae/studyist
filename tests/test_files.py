@@ -247,3 +247,31 @@ def test_chunked_body_without_content_length_also_returns_413(client, monkeypatc
     )
     assert response.status_code == 413
     assert response.json()["detail"] == "La petición es demasiado grande."
+
+
+def test_file_progress_is_saved_and_capped_at_page_count(client, monkeypatch):
+    """El progreso de una hoja de ejercicios se guarda y no pasa de sus paginas."""
+    from server.scripts import files as files_script
+
+    monkeypatch.setattr(files_script, "count_pdf_pages", lambda path: 4)
+    uploaded = _upload(
+        client,
+        "ejercicio.pdf",
+        b"%PDF-1.4\n%%EOF\n",
+        "application/pdf",
+        kind="ejercicio",
+    ).json()
+    assert uploaded["student_progress"] == 0
+
+    saved = client.put(
+        f"/files/{uploaded['id']}/progress", json={"student_progress": 2}
+    )
+    assert saved.status_code == 200
+    assert saved.json()["student_progress"] == 2
+    assert client.get(f"/files/{uploaded['id']}").json()["student_progress"] == 2
+
+    too_far = client.put(
+        f"/files/{uploaded['id']}/progress", json={"student_progress": 5}
+    )
+    assert too_far.status_code == 400
+    assert client.get(f"/files/{uploaded['id']}").json()["student_progress"] == 2

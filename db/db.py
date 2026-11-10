@@ -205,6 +205,11 @@ class File(Base):
     size: Mapped[int] = mapped_column(Integer, nullable=False)
     thumbnail: Mapped[str | None] = mapped_column(String(500))
     page_count: Mapped[int | None] = mapped_column(Integer)
+    # Progreso del usuario en archivos que no forman parte del timeline del
+    # tema (los de tipo ejercicio): puntero absoluto en paginas del PDF.
+    student_progress: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
     # sha256 del contenido: evita guardar dos veces el mismo archivo.
     hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
 

@@ -72,6 +72,7 @@ SCHEMA: list[str] = [
         size      INTEGER NOT NULL,
         thumbnail TEXT,
         page_count INTEGER,
+        student_progress INTEGER NOT NULL DEFAULT 0,
         hash      TEXT    NOT NULL UNIQUE
     )
     """,
@@ -259,6 +260,7 @@ def _migrate_existing_columns(connection: sqlite3.Connection) -> None:
     """Añade columnas nuevas a bases creadas por versiones anteriores."""
     for table, column, definition in (
         ("file", "page_count", "INTEGER"),
+        ("file", "student_progress", "INTEGER NOT NULL DEFAULT 0"),
         ("tema", "teacher_progress", "INTEGER NOT NULL DEFAULT 0"),
         ("tema", "student_progress", "INTEGER NOT NULL DEFAULT 0"),
     ):

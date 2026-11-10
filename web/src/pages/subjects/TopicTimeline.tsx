@@ -1,11 +1,20 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import type { TemaRead } from "../../api/generated";
-import { IconButton } from "../../components";
+import type { FileRead, TemaRead } from "../../api/generated";
+import { IconButton, ProgressBar } from "../../components";
+import { formatMinutes } from "../../lib/format";
+import { ExerciseProgressRow } from "./ExerciseProgressRow";
+import {
+  topicExerciseFiles,
+  type ProgressStats,
+} from "./subjectProgress";
 import { flattenTopics } from "./topicTree";
 
 export interface TopicTimelineProps {
   topics: TemaRead[];
+  filesById: Map<number, FileRead>;
+  progressByTopic: Map<number, ProgressStats>;
+  onFileSaved: (file: FileRead) => void;
   onDelete: (topic: TemaRead) => void;
 }
 
@@ -22,7 +31,13 @@ function plural(count: number, singular: string, pluralForm: string): string {
  * horizontal: una linea a la izquierda, un punto por tema y la tarjeta
  * clicable al lado. Los temas con hijos se pueden plegar.
  */
-export function TopicTimeline({ topics, onDelete }: TopicTimelineProps) {
+export function TopicTimeline({
+  topics,
+  filesById,
+  progressByTopic,
+  onFileSaved,
+  onDelete,
+}: TopicTimelineProps) {
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const rows = useMemo(() => flattenTopics(topics, collapsed), [topics, collapsed]);
 
@@ -43,6 +58,8 @@ export function TopicTimeline({ topics, onDelete }: TopicTimelineProps) {
         const children = topic.child_ids?.length ?? 0;
         const isCollapsed = collapsed.has(topic.id);
         const indent = Math.min(depth, MAX_INDENT_DEPTH) * INDENT_PX;
+        const progress = progressByTopic.get(topic.id);
+        const exercises = topicExerciseFiles(topic, filesById);
 
         return (
           <li
@@ -110,6 +127,35 @@ export function TopicTimeline({ topics, onDelete }: TopicTimelineProps) {
                         isCollapsed ? " (plegado)" : ""
                       }`}
                   </p>
+
+                  {progress && progress.totalMinutes > 0 && (
+                    <div className="relative z-10 mt-2 pl-7">
+                      <div className="flex items-baseline justify-between gap-2 text-[11px]">
+                        <span className="text-onyx-inkFaint">
+                          {progress.percent}% completado
+                        </span>
+                        <span className="tabular-nums text-onyx-inkMuted">
+                          Quedan ≈ {formatMinutes(progress.remainingMinutes)}
+                        </span>
+                      </div>
+                      <ProgressBar value={progress.percent} className="mt-1" />
+                    </div>
+                  )}
+
+                  {exercises.length > 0 && (
+                    <div className="relative z-10 mt-3 flex flex-col gap-1.5 pl-7">
+                      <p className="text-[11px] uppercase tracking-wide text-onyx-inkFaint">
+                        Hojas de ejercicios
+                      </p>
+                      {exercises.map((file) => (
+                        <ExerciseProgressRow
+                          key={file.id}
+                          file={file}
+                          onSaved={onFileSaved}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <IconButton

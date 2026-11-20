@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { cn } from "../lib/cn";
 import { formatBytes } from "../lib/format";
 import { IconButton } from "./ui/IconButton";
@@ -16,9 +17,14 @@ export interface FileRowFile {
 
 export interface FileRowProps {
   file: FileRowFile;
+  href?: string;
+  target?: string;
   onOpen?: (id: number) => void;
+  openIcon?: "chevron" | "external" | "none";
+  onEdit?: (id: number) => void;
   onRename?: (id: number) => void;
   onDelete?: (id: number) => void;
+  actions?: ReactNode;
   className?: string;
 }
 
@@ -66,7 +72,18 @@ function TypeIcon({ type }: { type: string }) {
  * Fila reutilizable de archivo: thumbnail, nombre y meta + acciones.
  * No consulta la API: usa las URLs que le pasa la pagina.
  */
-export function FileRow({ file, onOpen, onRename, onDelete, className }: FileRowProps) {
+export function FileRow({
+  file,
+  href,
+  target,
+  onOpen,
+  openIcon = "chevron",
+  onEdit,
+  onRename,
+  onDelete,
+  actions,
+  className,
+}: FileRowProps) {
   const content = (
     <>
       <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-onyx-line bg-onyx-bg">
@@ -102,7 +119,17 @@ export function FileRow({ file, onOpen, onRename, onDelete, className }: FileRow
         className,
       )}
     >
-      {onOpen ? (
+      {href ? (
+        <a
+          href={href}
+          target={target ?? "_blank"}
+          rel="noreferrer"
+          aria-label={`Abrir ${file.name}`}
+          className="focus-ring flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left"
+        >
+          {content}
+        </a>
+      ) : onOpen ? (
         <button
           type="button"
           onClick={() => onOpen(file.id)}
@@ -116,16 +143,38 @@ export function FileRow({ file, onOpen, onRename, onDelete, className }: FileRow
       )}
 
       <div className="flex shrink-0 items-center gap-0.5">
-        {onOpen && (
+        {actions}
+
+        {onEdit && (
           <IconButton
-            aria-label={`Abrir ${file.name}`}
+            aria-label={`Editar ${file.name}`}
+            title="Editar archivo"
             size="sm"
-            onClick={() => onOpen(file.id)}
+            onClick={() => onEdit(file.id)}
             className="sm:h-9 sm:w-9"
           >
             <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
-              <path d="M7.5 5 12.5 10l-5 5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M4.5 15.5h3l7-7-3-3-7 7zM11 5.5l3 3" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
+          </IconButton>
+        )}
+
+        {(onOpen || href) && openIcon !== "none" && (
+          <IconButton
+            aria-label={`Abrir ${file.name}`}
+            size="sm"
+            onClick={href ? () => window.open(href, target ?? "_blank", "noopener,noreferrer") : () => onOpen?.(file.id)}
+            className="sm:h-9 sm:w-9"
+          >
+            {openIcon === "external" ? (
+              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                <path d="M11 4h5v5M10 10l6-6M16 11v5H4V4h5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                <path d="M7.5 5 12.5 10l-5 5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
           </IconButton>
         )}
 

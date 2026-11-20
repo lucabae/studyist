@@ -105,6 +105,12 @@ export default function TopicPage() {
     void load();
   }, [load]);
 
+  const handleFileUpdated = useCallback((saved: FileRead) => {
+    setFiles((current) =>
+      current.map((file) => (file.id === saved.id ? saved : file)),
+    );
+  }, []);
+
   const parentTopic =
     topic?.parent_id != null
       ? siblings.find((item) => item.id === topic.parent_id) ?? null
@@ -164,7 +170,12 @@ export default function TopicPage() {
               }}
             />
             <TopicStudyTimeline topic={topic} files={files} onSaved={setTopic} />
-            <TopicFilesSection topic={topic} files={files} onSaved={setTopic} />
+            <TopicFilesSection
+              topic={topic}
+              files={files}
+              onSaved={setTopic}
+              onFileUpdated={handleFileUpdated}
+            />
             <TopicSetsSection
               topic={topic}
               sets={sets}

@@ -6,7 +6,7 @@
  * termina antes de la barra de navegacion inferior.
  */
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   Button,
   Card,
@@ -25,6 +25,15 @@ import { FILE_DOC_KIND_LABELS, fileKind, fileTypeLabel, fileUrl } from "./fileUt
 
 export default function FilePage() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const rawReturnTo = searchParams.get("returnTo") || searchParams.get("from");
+  const returnTo =
+    rawReturnTo && rawReturnTo.startsWith("/") && !rawReturnTo.startsWith("//")
+      ? rawReturnTo
+      : null;
+  const backTarget = returnTo || "/archivos";
+  const backLabel = returnTo ? "Volver" : "Archivos";
+
   const fileId = Number(id);
   const isValidId = Number.isInteger(fileId) && fileId > 0;
 
@@ -87,8 +96,8 @@ export default function FilePage() {
           title="Este archivo no existe"
           description="Puede que se haya borrado o que el enlace esté mal."
           action={
-            <Button to="/archivos" variant="secondary" size="sm">
-              Volver a Archivos
+            <Button to={backTarget} variant="secondary" size="sm">
+              {returnTo ? "Volver" : "Volver a Archivos"}
             </Button>
           }
         />
@@ -111,8 +120,8 @@ export default function FilePage() {
             >
               Reintentar
             </Button>
-            <Button to="/archivos" size="sm" variant="ghost">
-              Volver a Archivos
+            <Button to={backTarget} size="sm" variant="ghost">
+              {returnTo ? "Volver" : "Volver a Archivos"}
             </Button>
           </div>
         </div>
@@ -126,13 +135,13 @@ export default function FilePage() {
   return (
     <div className="mx-auto flex w-full max-w-[880px] flex-col gap-4 px-4 py-5 sm:px-6 sm:py-8">
       <Link
-        to="/archivos"
+        to={backTarget}
         className="focus-ring inline-flex w-fit items-center gap-1 rounded-md text-[13px] text-onyx-inkMuted transition-colors hover:text-onyx-ink"
       >
         <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
           <path d="M12.5 5 7.5 10l5 5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-        Archivos
+        {backLabel}
       </Link>
 
       <PageHeader

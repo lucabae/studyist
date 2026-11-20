@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
+  updateFileFilesFileIdPut,
   updateTemaTemaTemaIdPut,
   type FileRead,
   type TemaRead,
@@ -8,7 +9,13 @@ import {
 import { Button, FileRow, useToast } from "../../components";
 import { apiErrorMessage } from "../../lib/api";
 import { formatBytes } from "../../lib/format";
-import { thumbnailUrl } from "../files/fileUtils";
+import {
+  FILE_DOC_KIND_OPTIONS,
+  fileUrl,
+  shortFileType,
+  thumbnailUrl,
+  type FileDocKind,
+} from "../files/fileUtils";
 import { EntityPickerModal } from "./EntityPickerModal";
 import { TopicSectionCard } from "./TopicSectionCard";
 
@@ -16,10 +23,16 @@ export interface TopicFilesSectionProps {
   topic: TemaRead;
   files: FileRead[];
   onSaved: (topic: TemaRead) => void;
+  onFileUpdated?: (file: FileRead) => void;
 }
 
 /** Archivos vinculados al tema, añadidos y quitados desde un selector modal. */
-export function TopicFilesSection({ topic, files, onSaved }: TopicFilesSectionProps) {
+export function TopicFilesSection({
+  topic,
+  files,
+  onSaved,
+  onFileUpdated,
+}: TopicFilesSectionProps) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -54,6 +67,24 @@ export function TopicFilesSection({ topic, files, onSaved }: TopicFilesSectionPr
     toast("Archivos actualizados", "success");
   }
 
+  async function handleKindChange(file: FileRead, newKind: FileDocKind) {
+    if (file.kind === newKind) return;
+    const { data, error } = await updateFileFilesFileIdPut({
+      path: { file_id: file.id },
+      body: { name: file.name, kind: newKind },
+    });
+
+    if (error || !data) {
+      toast(apiErrorMessage(error), "error");
+      return;
+    }
+
+    toast("Tipo de archivo actualizado", "success");
+    onFileUpdated?.(data);
+  }
+
+  const returnTo = encodeURIComponent(`/temas/${topic.id}`);
+
   return (
     <TopicSectionCard
       title="Archivos"
@@ -80,15 +111,33 @@ export function TopicFilesSection({ topic, files, onSaved }: TopicFilesSectionPr
                     file={{
                       id: file.id,
                       name: file.name,
-                      type: file.type,
+                      type: shortFileType(file.type),
                       size: file.size,
                       thumbnail: thumbnailUrl(file.thumbnail),
                     }}
-                    onOpen={() => navigate(`/archivos/${file.id}`)}
+                    href={fileUrl(file.path)}
+                    target="_blank"
+                    openIcon="none"
+                    onEdit={() => navigate(`/archivos/${file.id}?returnTo=${returnTo}`)}
+                    actions={
+                      <select
+                        value={file.kind}
+                        onChange={(e) => void handleKindChange(file, e.target.value as FileDocKind)}
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`Tipo de documento para ${file.name}`}
+                        className="focus-ring h-7 shrink-0 rounded-md border border-onyx-line bg-onyx-surface px-2 text-[12px] text-onyx-ink outline-none transition-colors hover:border-onyx-inkFaint/50"
+                      >
+                        {FILE_DOC_KIND_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    }
                   />
                 ) : (
                   <Link
-                    to={`/archivos/${fileId}`}
+                    to={`/archivos/${fileId}?returnTo=${returnTo}`}
                     className="focus-ring flex items-center rounded-lg px-2 py-2 text-[14px] text-onyx-inkMuted transition-colors duration-150 hover:bg-onyx-surfaceHover hover:text-onyx-ink"
                   >
                     Archivo #{fileId}

@@ -64,6 +64,14 @@ else
     UVICORN="uvicorn"
 fi
 
-"$UVICORN" server.main:app --reload --host 127.0.0.1 --port 8080 \
+# Sin --reload por defecto: el watcher de uvicorn vigila todo el arbol del
+# proyecto (web/node_modules, files/, db/) y se come CPU con el servidor en
+# reposo. Para desarrollo activo, arrancar con STUDYIST_RELOAD=1.
+RELOAD_FLAG=""
+if [[ -n "${STUDYIST_RELOAD:-}" ]]; then
+    RELOAD_FLAG="--reload"
+fi
+
+"$UVICORN" server.main:app ${RELOAD_FLAG:+"$RELOAD_FLAG"} --host 127.0.0.1 --port 8080 \
     >> "$LOG_DIR/backend_server.log" \
     2>> "$LOG_DIR/backend_server.error.log"

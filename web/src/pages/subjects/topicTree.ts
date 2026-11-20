@@ -22,34 +22,62 @@ export function flattenTopics(
   topics: TemaRead[],
   collapsed: Set<number> = new Set(),
 ): TopicRow[] {
-  const children = new Map<number | null, TemaRead[]>();
+  const topicsById = new Map<number, TemaRead>(topics.map((t) => [t.id, t]));
+  const children = new Map<number, TemaRead[]>();
+  const roots: TemaRead[] = [];
+
   for (const topic of topics) {
-    const key = topic.parent_id ?? null;
-    const bucket = children.get(key);
-    if (bucket) bucket.push(topic);
-    else children.set(key, [topic]);
-  }
-  for (const bucket of children.values()) bucket.sort(byName);
-
-  const rows: TopicRow[] = [];
-  const visited = new Set<number>();
-
-  function walk(parentId: number | null, depth: number) {
-    for (const topic of children.get(parentId) ?? []) {
-      if (visited.has(topic.id)) continue;
-      visited.add(topic.id);
-      rows.push({ topic, depth });
-      if (!collapsed.has(topic.id)) walk(topic.id, depth + 1);
+    if (topic.parent_id == null || !topicsById.has(topic.parent_id)) {
+      roots.push(topic);
+    } else {
+      const bucket = children.get(topic.parent_id);
+      if (bucket) bucket.push(topic);
+      else children.set(topic.parent_id, [topic]);
     }
   }
 
-  walk(null, 0);
+  for (const bucket of children.values()) bucket.sort(byName);
+  roots.sort(byName);
 
-  for (const topic of topics.filter((item) => !visited.has(item.id)).sort(byName)) {
-    if (visited.has(topic.id)) continue;
-    visited.add(topic.id);
-    rows.push({ topic, depth: 0 });
-    if (!collapsed.has(topic.id)) walk(topic.id, 1);
+  // Marcar todos los descendientes que forman parte de arboles con raiz conocida,
+  // independientemente de si estan plegados o no, para que los plegados no se
+  // confundan con huerfanos al final.
+  const reachable = new Set<number>();
+  function markReachable(topicId: number) {
+    if (reachable.has(topicId)) return;
+    reachable.add(topicId);
+    for (const child of children.get(topicId) ?? []) {
+      markReachable(child.id);
+    }
+  }
+
+  for (const root of roots) {
+    markReachable(root.id);
+  }
+
+  const rows: TopicRow[] = [];
+  const inRow = new Set<number>();
+
+  function walk(topic: TemaRead, depth: number) {
+    if (inRow.has(topic.id)) return;
+    inRow.add(topic.id);
+    rows.push({ topic, depth });
+    if (!collapsed.has(topic.id)) {
+      for (const child of children.get(topic.id) ?? []) {
+        walk(child, depth + 1);
+      }
+    }
+  }
+
+  for (const root of roots) {
+    walk(root, 0);
+  }
+
+  // Temas que no cuelgan de ninguna raiz (por ejemplo ciclos aislados entre si)
+  for (const topic of topics.filter((t) => !reachable.has(t.id)).sort(byName)) {
+    if (reachable.has(topic.id)) continue;
+    markReachable(topic.id);
+    walk(topic, 0);
   }
 
   return rows;

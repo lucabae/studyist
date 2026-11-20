@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   updateFileProgressFilesFileIdProgressPut,
   type FileRead,
@@ -85,11 +85,14 @@ export function ExerciseProgressRow({ file, onSaved }: ExerciseProgressRowProps)
     onSaved(data);
   }
 
+  const location = useLocation();
+  const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);
+
   return (
     <div className="min-w-0 rounded-lg border border-onyx-line/70 bg-onyx-bg/40 px-3 py-2">
       <div className="flex items-baseline justify-between gap-3">
         <Link
-          to={`/archivos/${file.id}`}
+          to={`/archivos/${file.id}?returnTo=${returnTo}`}
           className="focus-ring min-w-0 truncate rounded text-[13px] text-onyx-ink transition-colors duration-150 hover:text-white"
         >
           {file.name}

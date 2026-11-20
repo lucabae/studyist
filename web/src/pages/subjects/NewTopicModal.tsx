@@ -10,12 +10,17 @@ import {
 import {
   createFileFilesPost,
   createTemaTemaPost,
+  updateFileFilesFileIdPut,
   type TemaRead,
 } from "../../api/generated";
 import { Button, Field, FileDropZone, Input, Modal, Spinner } from "../../components";
 import { apiErrorMessage } from "../../lib/api";
 import { formatBytes } from "../../lib/format";
-import { duplicateFileId } from "../files/fileUtils";
+import {
+  FILE_DOC_KIND_OPTIONS,
+  duplicateFileId,
+  type FileDocKind,
+} from "../files/fileUtils";
 import { optionLabel, parentOptions } from "./topicTree";
 
 export interface NewTopicModalProps {
@@ -35,6 +40,7 @@ interface PendingFile {
   key: string;
   name: string;
   size: number;
+  kind: FileDocKind;
   status: "uploading" | "done" | "error";
   /** Id en la biblioteca; en un duplicado es el del archivo que ya existía. */
   fileId?: number;
@@ -62,9 +68,14 @@ export function NewTopicModal({
 
   // La cola vive en refs: los archivos se suben de uno en uno mientras el
   // usuario sigue rellenando el formulario.
-  const queue = useRef<{ key: string; file: File }[]>([]);
+  const queue = useRef<{ key: string; file: File; kind: FileDocKind }[]>([]);
   const running = useRef(false);
   const counter = useRef(0);
+  const filesRef = useRef<PendingFile[]>([]);
+
+  useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
 
   const options = useMemo(() => parentOptions(topics), [topics]);
 
@@ -96,12 +107,23 @@ export function NewTopicModal({
         const entry = queue.current.shift();
         if (!entry) break;
 
+        const currentKind =
+          filesRef.current.find((item) => item.key === entry.key)?.kind ?? entry.kind;
+
         const { data, error, response } = await createFileFilesPost({
-          body: { upload: entry.file },
+          body: { upload: entry.file, kind: currentKind },
         });
 
         if (!error && data) {
           patch(entry.key, { status: "done", fileId: data.id });
+          const latestKind =
+            filesRef.current.find((item) => item.key === entry.key)?.kind ?? currentKind;
+          if (latestKind !== currentKind) {
+            void updateFileFilesFileIdPut({
+              path: { file_id: data.id },
+              body: { name: data.name, kind: latestKind },
+            });
+          }
           continue;
         }
 
@@ -109,6 +131,15 @@ export function NewTopicModal({
         // de dejar la fila como error, porque el tema puede enlazarlo igual.
         const duplicateId =
           response?.status === 409 ? duplicateFileId(error) : null;
+
+        if (duplicateId !== null) {
+          const latestKind =
+            filesRef.current.find((item) => item.key === entry.key)?.kind ?? currentKind;
+          void updateFileFilesFileIdPut({
+            path: { file_id: duplicateId },
+            body: { name: entry.file.name, kind: latestKind },
+          });
+        }
 
         patch(entry.key, {
           status: duplicateId === null ? "error" : "done",
@@ -128,7 +159,11 @@ export function NewTopicModal({
 
       const entries = incoming.map((file) => {
         counter.current += 1;
-        return { key: `archivo-${counter.current}`, file };
+        return {
+          key: `archivo-${counter.current}`,
+          file,
+          kind: "teoria" as FileDocKind,
+        };
       });
 
       setFiles((current) => [
@@ -137,6 +172,7 @@ export function NewTopicModal({
           key: entry.key,
           name: entry.file.name,
           size: entry.file.size,
+          kind: entry.kind,
           status: "uploading" as const,
         })),
       ]);
@@ -146,6 +182,23 @@ export function NewTopicModal({
     },
     [drain],
   );
+
+  const handleKindChange = async (key: string, newKind: FileDocKind) => {
+    patch(key, { kind: newKind });
+
+    const queued = queue.current.find((item) => item.key === key);
+    if (queued) {
+      queued.kind = newKind;
+    }
+
+    const target = filesRef.current.find((item) => item.key === key);
+    if (target?.fileId) {
+      await updateFileFilesFileIdPut({
+        path: { file_id: target.fileId },
+        body: { name: target.name, kind: newKind },
+      });
+    }
+  };
 
   const removeFile = (key: string) => {
     setFiles((current) => current.filter((item) => item.key !== key));
@@ -311,6 +364,20 @@ export function NewTopicModal({
                           : item.message ?? formatBytes(item.size)}
                       </span>
                     </span>
+
+                    <select
+                      value={item.kind}
+                      onChange={(e) => void handleKindChange(item.key, e.target.value as FileDocKind)}
+                      disabled={saving}
+                      aria-label={`Tipo de documento para ${item.name}`}
+                      className="focus-ring h-7 shrink-0 rounded-md border border-onyx-line bg-onyx-bg px-2 text-[12px] text-onyx-ink outline-none"
+                    >
+                      {FILE_DOC_KIND_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
 
                     <button
                       type="button"

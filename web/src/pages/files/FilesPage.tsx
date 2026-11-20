@@ -305,6 +305,7 @@ export default function FilesPage() {
             {files.map((file) => (
               <li
                 key={file.id}
+                id={`archivo-${file.id}`}
                 className="border-b border-onyx-line last:border-b-0"
               >
                 <FileRow

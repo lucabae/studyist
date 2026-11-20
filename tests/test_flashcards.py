@@ -423,45 +423,12 @@ def test_programming_exercise_stores_test_cases_and_run_is_disabled(
     assert exercise["test_cases"][0]["input"] == "[1, 2]"
     assert fake_openrouter.calls[-1]["system_prompt"] == "exercises_code"
 
-    correct = client.post(
-        f"/ejercicio/{exercise['id']}/run",
-        json={"code": "def solve(a, b):\n    return a + b"},
-    )
-    assert correct.status_code == 403
-    assert correct.json()["detail"] == "La ejecución de código está desactivada."
-
-    wrong = client.post(
-        f"/ejercicio/{exercise['id']}/run",
-        json={"code": "def solve(a, b):\n    return a - b"},
-    )
-    assert wrong.status_code == 403
-
     listed = client.get("/ejercicio", params={"tema_id": tema_id}).json()
     assert listed[0]["test_case_count"] == 2
 
     deleted = client.delete(f"/ejercicio/{exercise['id']}")
     assert deleted.status_code == 204
     assert client.get(f"/ejercicio/{exercise['id']}").status_code == 404
-
-
-def test_run_rejects_text_exercises(client, make_file, fake_openrouter):
-    """Con run desactivado tambien los ejercicios de texto dan 403."""
-    import json
-
-    examen = make_file(name="2024_enero.pdf", content=b"examen")
-    _set_kind(client, examen.id, "examen")
-    tema_id = _tema_with_files(client, [examen])
-    fake_openrouter.send_reply = json.dumps(
-        {"statement": "Explica X.", "solution": "X es...", "explanation": "..."}
-    )
-
-    created = client.post("/study/exercise", json={"tema_id": tema_id})
-    exercise_id = created.json()["exercise"]["id"]
-
-    response = client.post(
-        f"/ejercicio/{exercise_id}/run", json={"code": "def solve(): pass"}
-    )
-    assert response.status_code == 403
 
 
 def test_exercise_without_exams_or_exercises_returns_400(

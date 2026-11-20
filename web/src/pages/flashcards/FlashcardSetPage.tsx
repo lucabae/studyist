@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   createFlashcardFlashcardPost,
   deleteFlashcardFlashcardFlashcardIdDelete,
@@ -50,7 +50,16 @@ function parseId(value: string | undefined): number | null {
 
 export default function FlashcardSetPage() {
   const { setId: setIdParam } = useParams();
+  const [searchParams] = useSearchParams();
+  const rawReturnTo = searchParams.get("returnTo") || searchParams.get("from");
+  const returnTo =
+    rawReturnTo && rawReturnTo.startsWith("/") && !rawReturnTo.startsWith("//")
+      ? rawReturnTo
+      : null;
   const setId = parseId(setIdParam);
+  const backTarget = returnTo || (setId ? `/flashcards#set-${setId}` : "/flashcards");
+  const backLabel = returnTo ? "Volver" : "Flashcards";
+  const cardQuery = returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : "";
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -234,8 +243,8 @@ export default function FlashcardSetPage() {
         <p role="alert" className="text-[13px] text-onyx-inkMuted">
           El set que buscas no existe.
         </p>
-        <Button to="/flashcards" variant="secondary" className="mt-4">
-          Volver a Flashcards
+        <Button to={backTarget} variant="secondary" className="mt-4">
+          {returnTo ? "Volver" : "Volver a Flashcards"}
         </Button>
       </div>
     );
@@ -261,13 +270,13 @@ export default function FlashcardSetPage() {
     <div className="mx-auto w-full max-w-[720px] px-4 py-6 sm:px-6 sm:py-8">
       <nav aria-label="Migas de pan" className="mb-3">
         <Link
-          to="/flashcards"
+          to={backTarget}
           className="focus-ring inline-flex items-center gap-1 rounded text-[13px] text-onyx-inkMuted transition-colors duration-150 hover:text-onyx-ink"
         >
           <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
             <path d="M12.5 5 7.5 10l5 5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          Flashcards
+          {backLabel}
         </Link>
       </nav>
 
@@ -283,8 +292,8 @@ export default function FlashcardSetPage() {
           <p role="alert" className="text-[13px] leading-relaxed text-[#f0a8a1]">
             {loadError}
           </p>
-          <Button to="/flashcards" variant="secondary" className="mt-4">
-            Volver a Flashcards
+          <Button to={backTarget} variant="secondary" className="mt-4">
+            {returnTo ? "Volver" : "Volver a Flashcards"}
           </Button>
         </>
       )}
@@ -420,12 +429,12 @@ export default function FlashcardSetPage() {
             {cards !== null && cards.length > 0 && (
               <ul className="mt-3 flex flex-col gap-2">
                 {cards.map((card) => (
-                  <li key={card.id}>
+                  <li key={card.id} id={`card-${card.id}`}>
                     <div className="flex min-w-0 items-center gap-1 rounded-xl border border-onyx-line bg-onyx-surface pr-1 transition-colors duration-150 hover:bg-onyx-surfaceHover">
                       <button
                         type="button"
                         onClick={() =>
-                          navigate(`/flashcards/${flashcardSet.id}/cards/${card.id}`)
+                          navigate(`/flashcards/${flashcardSet.id}/cards/${card.id}${cardQuery}`)
                         }
                         aria-label={`Abrir tarjeta: ${card.front}`}
                         className="focus-ring min-w-0 flex-1 rounded-lg px-3 py-3 text-left"

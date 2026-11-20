@@ -43,11 +43,12 @@ export const EMPTY_PROGRESS: ProgressStats = {
   exerciseRemainingMinutes: 0,
 };
 
-/** PDF que forma parte del timeline lectivo del tema (no es un ejercicio). */
+/** PDF que forma parte del timeline lectivo del tema (ni ejercicio ni examen). */
 export function isTemarioPdf(file: FileRead): boolean {
   return (
     file.type === "application/pdf" &&
     file.kind !== "ejercicio" &&
+    file.kind !== "examen" &&
     (file.page_count ?? 0) > 0
   );
 }

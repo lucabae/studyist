@@ -3,24 +3,16 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   deleteEjercicioEjercicioEjercicioIdDelete,
   getEjercicioEjercicioEjercicioIdGet,
-  runEjercicioEjercicioEjercicioIdRunPost,
   type EjercicioRead,
-  type RunExerciseResponse,
 } from "../../api/generated";
 import { Button, Card, CodeEditor, Spinner, useToast } from "../../components";
 import { RichText } from "../../components/RichText";
 import { PageHeader } from "../../layout/PageHeader";
 import { apiErrorMessage } from "../../lib/api";
+import { runPythonTests, type RunExerciseResponse } from "../../lib/pyodideRunner";
 import { ConfirmDialog } from "../flashcards/ConfirmDialog";
 
 type Status = "loading" | "ready" | "notfound" | "error";
-
-/**
- * La ejecución de código está desactivada en el backend
- * (`EXERCISE_RUN_ENABLED = False` en server/views/ejercicio/router.py).
- * El editor y el botón se ocultan para no ofrecer una acción que da 403.
- */
-const EXERCISE_RUN_ENABLED = false;
 
 
 /** Args JSON del test case -> "solve(1, 2)" para pintarlo legible. */
@@ -63,6 +55,7 @@ export default function ExercisePage() {
 
   const [code, setCode] = useState("");
   const [running, setRunning] = useState(false);
+  const [runPhase, setRunPhase] = useState<"loading" | "running">("loading");
   const [runResult, setRunResult] = useState<RunExerciseResponse | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [solutionOpen, setSolutionOpen] = useState(false);
@@ -109,18 +102,19 @@ export default function ExercisePage() {
     }
 
     setRunning(true);
+    setRunPhase("loading");
     setRunError(null);
     setRunResult(null);
     try {
-      const { data } = await runEjercicioEjercicioEjercicioIdRunPost({
-        path: { ejercicio_id: exercise.id },
-        body: { code },
-        throwOnError: true,
-      });
+      const data = await runPythonTests(
+        code,
+        exercise.test_cases ?? [],
+        (phase) => setRunPhase(phase),
+      );
       setRunResult(data);
       if (data.ok) toast("Todos los test cases han pasado.", "success");
     } catch (error) {
-      setRunError(apiErrorMessage(error));
+      setRunError(error instanceof Error ? error.message : String(error));
     } finally {
       setRunning(false);
     }
@@ -183,7 +177,7 @@ export default function ExercisePage() {
   return (
     <div className="mx-auto flex w-full max-w-[880px] flex-col gap-4 px-4 py-5 sm:px-6 sm:py-8">
       <Link
-        to={`/temas/${exercise.tema_id}`}
+        to={`/temas/${exercise.tema_id}#ejercicio-${exercise.id}`}
         className="focus-ring inline-flex w-fit items-center gap-1 rounded-md text-[13px] text-onyx-inkMuted transition-colors hover:text-onyx-ink"
       >
         <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
@@ -254,16 +248,14 @@ export default function ExercisePage() {
               <p className="text-[11px] uppercase tracking-wide text-onyx-inkFaint">
                 Tu solución
               </p>
-              {EXERCISE_RUN_ENABLED ? (
-                <Button onClick={() => void run()} disabled={running}>
-                  {running && <Spinner size="sm" label="Ejecutando" />}
-                  {running ? "Ejecutando…" : "Ejecutar tests"}
-                </Button>
-              ) : (
-                <span className="text-[12px] text-onyx-inkFaint">
-                  Ejecución desactivada
-                </span>
-              )}
+              <Button onClick={() => void run()} disabled={running}>
+                {running && <Spinner size="sm" label="Ejecutando" />}
+                {running
+                  ? runPhase === "loading"
+                    ? "Cargando Python…"
+                    : "Ejecutando…"
+                  : "Ejecutar tests"}
+              </Button>
             </div>
 
             <div className="mt-3">
@@ -277,9 +269,7 @@ export default function ExercisePage() {
             </div>
 
             <p className="mt-2 text-[12px] leading-relaxed text-onyx-inkFaint">
-              {EXERCISE_RUN_ENABLED
-                ? "Define una función solve con los argumentos de cada test case. Sin input() ni print(): el resultado es lo que devuelve la función."
-                : "La ejecución de tests está desactivada. Puedes escribir tu solución y compararla con la que se muestra abajo."}
+              Define una función solve con los argumentos de cada test case. Se ejecuta en tu navegador con Python (Pyodide); el resultado es lo que devuelve la función.
             </p>
 
             {runError && (

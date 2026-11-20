@@ -21,7 +21,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-import server.views.chat.router as chat_router  # noqa: E402
 from db import init as db_init  # noqa: E402
 from db.db import File, get_session  # noqa: E402
 from server.auth import config as auth_config  # noqa: E402
@@ -46,8 +45,6 @@ FLASHCARDS_REPLY = json.dumps(
     ],
     ensure_ascii=False,
 )
-
-CHAT_REPLY = ("respuesta mock", "modelo-test")
 
 
 @pytest.fixture()
@@ -185,14 +182,10 @@ def client(files_root, session_factory, auth_files, monkeypatch):
     """TestClient ya autenticado como el unico usuario.
 
     Depende de files_root para que el mount /files se cree ya sobre tmp_path.
-    Tambien apunta chat_router.SessionLocal a la DB temporal: la generacion del
-    titulo del chat guarda en una sesion propia, fuera de la dependencia.
     Pasos: crear la app y el TestClient; POST /auth/login con TEST_PASSWORD;
     dejar el access token en las cabeceras por defecto para que el resto de
     tests no sepa de auth.
     """
-    monkeypatch.setattr(chat_router, "SessionLocal", session_factory)
-
     app = _make_app(session_factory)
     test_client = TestClient(app)
     try:
@@ -213,18 +206,15 @@ def client(files_root, session_factory, auth_files, monkeypatch):
 class FakeOpenRouter:
     """Doble de OpenRouter: guarda las llamadas y permite forzar errores.
 
-    send devuelve un JSON de 3 tarjetas y send_chat devuelve la respuesta fija
-    de CHAT_REPLY. Los tests activan send_error / chat_error para simular caidas.
+    send devuelve un JSON de 3 tarjetas. Los tests activan send_error para
+    simular caidas.
     """
 
     def __init__(self) -> None:
         self.calls: list[dict] = []
         self.send_error: Exception | None = None
-        self.chat_error: Exception | None = None
         # Si se rellena, send devuelve este texto en vez de FLASHCARDS_REPLY.
         self.send_reply: str | None = None
-        # Titulo que devuelve el prompt "title".
-        self.title_reply: str | None = None
 
     async def send(
         self,
@@ -249,34 +239,7 @@ class FakeOpenRouter:
         )
         if self.send_error is not None:
             raise self.send_error
-        # El prompt "title" lo usa el chat para titular el hilo: devuelve un
-        # titulo corto en vez del JSON de flashcards.
-        if system_prompt == "title":
-            return self.title_reply or "Titulo de prueba", "modelo-test"
         return self.send_reply or FLASHCARDS_REPLY, "modelo-test"
-
-    async def send_chat(
-        self,
-        messages,
-        model_type="general",
-        files=None,
-        file_mode="text",
-        model_override=None,
-    ):
-        """Mock de openrouter.send_chat."""
-        self.calls.append(
-            {
-                "kind": "chat",
-                "messages": [dict(item) for item in messages],
-                "model_type": model_type,
-                "files": files,
-                "file_mode": file_mode,
-                "model_override": model_override,
-            }
-        )
-        if self.chat_error is not None:
-            raise self.chat_error
-        return CHAT_REPLY
 
 
 @pytest.fixture(autouse=True)
@@ -293,8 +256,6 @@ def fake_openrouter(monkeypatch):
     """Sustituye las llamadas reales a OpenRouter por mocks asincronos."""
     fake = FakeOpenRouter()
     monkeypatch.setattr(openrouter, "send", fake.send)
-    # El router de chat importo send_chat por nombre: hay que parchear alli.
-    monkeypatch.setattr(chat_router, "send_chat", fake.send_chat)
     return fake
 
 

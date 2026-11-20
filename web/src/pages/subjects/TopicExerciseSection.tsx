@@ -196,7 +196,7 @@ export function TopicExerciseSection({
         ) : (
           <ul className="flex flex-col gap-0.5">
             {exercises.map((exercise) => (
-              <li key={exercise.id} className="min-w-0">
+              <li key={exercise.id} id={`ejercicio-${exercise.id}`} className="min-w-0">
                 <Link
                   to={`/ejercicios/${exercise.id}`}
                   className="focus-ring flex items-center justify-between gap-3 rounded-lg px-2 py-2 transition-colors duration-150 hover:bg-onyx-surfaceHover"

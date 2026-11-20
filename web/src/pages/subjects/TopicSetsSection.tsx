@@ -91,9 +91,9 @@ export function TopicSetsSection({
             const set = setsById.get(setId);
 
             return (
-              <li key={setId} className="min-w-0">
+              <li key={setId} id={`set-${setId}`} className="min-w-0">
                 <Link
-                  to={`/flashcards/${setId}`}
+                  to={`/flashcards/${setId}?returnTo=${encodeURIComponent(`/temas/${topic.id}#set-${setId}`)}`}
                   className="focus-ring flex items-center justify-between gap-3 rounded-lg px-2 py-2 transition-colors duration-150 hover:bg-onyx-surfaceHover"
                 >
                   <span className="min-w-0">

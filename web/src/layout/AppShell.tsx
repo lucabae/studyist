@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import logoMark from "../../media/logo_no_text.png";
 import { useAuth } from "../auth/AuthContext";
 import { cn } from "../lib/cn";
+import { ScrollManager } from "./ScrollManager";
 
 interface NavItem {
   to: string;
@@ -13,7 +14,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   {
     to: "/",
-    label: "Principal",
+    label: "Hoy",
     path: "M3.5 10.5 10 4l6.5 6.5v6a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1z",
   },
   {
@@ -128,6 +129,7 @@ export function AppShell() {
       </nav>
 
       <main id="contenido" className="min-w-0 flex-1 pb-14 sm:pb-0">
+        <ScrollManager />
         <Outlet />
       </main>
 

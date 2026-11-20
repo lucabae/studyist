@@ -132,44 +132,6 @@ SCHEMA: list[str] = [
         back_img_id       INTEGER REFERENCES file(id) ON DELETE SET NULL
     )
     """,
-    # Chat interno: varios hilos globales (file_id NULL, pagina Principal) y uno
-    # por archivo. El UNIQUE es parcial: solo un hilo por archivo, pero tantos
-    # hilos globales como conversaciones haya en el historial. "title" lo genera
-    # la IA con el primer mensaje del hilo.
-    """
-    CREATE TABLE IF NOT EXISTS chat_thread (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        file_id    INTEGER REFERENCES file(id) ON DELETE CASCADE,
-        title      TEXT,
-        created_at TEXT    NOT NULL,
-        updated_at TEXT    NOT NULL
-    )
-    """,
-    """
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_thread_file
-        ON chat_thread(file_id) WHERE file_id IS NOT NULL
-    """,
-    # Historial de la pagina Principal: los globales se listan por actividad.
-    """
-    CREATE INDEX IF NOT EXISTS idx_chat_thread_global_updated
-        ON chat_thread(updated_at DESC) WHERE file_id IS NULL
-    """,
-    # Mensajes del hilo: role solo admite user/assistant. "model" queda NULL en
-    # los mensajes del usuario.
-    """
-    CREATE TABLE IF NOT EXISTS chat_message (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        thread_id  INTEGER NOT NULL REFERENCES chat_thread(id) ON DELETE CASCADE,
-        role       TEXT    NOT NULL CHECK (role IN ('user', 'assistant')),
-        content    TEXT    NOT NULL,
-        model      TEXT,
-        created_at TEXT    NOT NULL
-    )
-    """,
-    """
-    CREATE INDEX IF NOT EXISTS idx_chat_message_thread
-        ON chat_message(thread_id, id)
-    """,
     # Ejercicio: generado por la IA a partir de los archivos de un tema y
     # guardado para poder volver a verlo. kind distingue el de texto (enunciado,
     # respuesta y explicacion) del de programacion (respuesta en Python y test

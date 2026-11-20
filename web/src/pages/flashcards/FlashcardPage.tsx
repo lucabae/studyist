@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   createFileFilesPost,
   deleteFlashcardFlashcardFlashcardIdDelete,
@@ -40,6 +40,13 @@ function fileUrl(file: FileRead): string {
 
 export default function FlashcardPage() {
   const { setId: setIdParam, cardId: cardIdParam } = useParams();
+  const [searchParams] = useSearchParams();
+  const rawReturnTo = searchParams.get("returnTo") || searchParams.get("from");
+  const returnTo =
+    rawReturnTo && rawReturnTo.startsWith("/") && !rawReturnTo.startsWith("//")
+      ? rawReturnTo
+      : null;
+  const returnQuery = returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : "";
   const setId = parseId(setIdParam);
   const cardId = parseId(cardIdParam);
   const navigate = useNavigate();
@@ -180,7 +187,7 @@ export default function FlashcardPage() {
         throwOnError: true,
       });
       toast("Tarjeta borrada.", "success");
-      navigate(setId === null ? "/flashcards" : `/flashcards/${setId}`);
+      navigate(setId === null ? "/flashcards" : `/flashcards/${setId}${returnQuery}`);
     } catch (error) {
       toast(apiErrorMessage(error), "error");
       setDeleting(false);
@@ -200,7 +207,11 @@ export default function FlashcardPage() {
     );
   }
 
-  const backToSet = setId === null ? "/flashcards" : `/flashcards/${setId}`;
+  const backToFlashcards = setId === null ? "/flashcards" : `/flashcards#set-${setId}`;
+  const backToSet =
+    setId === null
+      ? "/flashcards"
+      : `/flashcards/${setId}${returnQuery}${cardId ? `#card-${cardId}` : ""}`;
   const frontFile = card?.front_img_id != null ? files[card.front_img_id] : undefined;
   const backFile = card?.back_img_id != null ? files[card.back_img_id] : undefined;
   const currentFile = imageSide === "front" ? frontFile : backFile;
@@ -209,7 +220,7 @@ export default function FlashcardPage() {
     <div className="mx-auto w-full max-w-[720px] px-4 py-6 sm:px-6 sm:py-8">
       <nav aria-label="Migas de pan" className="mb-3 flex flex-wrap items-center gap-1">
         <Link
-          to="/flashcards"
+          to={backToFlashcards}
           className="focus-ring rounded text-[13px] text-onyx-inkMuted transition-colors duration-150 hover:text-onyx-ink"
         >
           Flashcards

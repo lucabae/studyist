@@ -176,7 +176,7 @@ export default function SubjectsPage() {
         {status === "ready" && subjects.length > 0 && (
           <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {subjects.map((subject) => (
-              <li key={subject.id} className="min-w-0">
+              <li key={subject.id} id={`asignatura-${subject.id}`} className="min-w-0">
                 <SubjectCard
                   subject={subject}
                   progress={progressBySubject.get(subject.id)}

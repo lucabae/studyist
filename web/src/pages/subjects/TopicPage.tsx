@@ -136,7 +136,7 @@ export default function TopicPage() {
       {status === "ready" && topic && (
         <>
           <Link
-            to={`/asignaturas/${topic.asignatura_id}`}
+            to={`/asignaturas/${topic.asignatura_id}#tema-${topic.id}`}
             className="focus-ring inline-flex max-w-full items-center gap-1.5 rounded-lg text-[13px] text-onyx-inkMuted transition-colors duration-150 hover:text-onyx-ink"
           >
             <svg viewBox="0 0 20 20" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>

@@ -86,10 +86,13 @@ export function ExerciseProgressRow({ file, onSaved }: ExerciseProgressRowProps)
   }
 
   const location = useLocation();
-  const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);
+  const returnTo = encodeURIComponent(`${location.pathname}${location.search}#archivo-${file.id}`);
 
   return (
-    <div className="min-w-0 rounded-lg border border-onyx-line/70 bg-onyx-bg/40 px-3 py-2">
+    <div
+      id={`archivo-${file.id}`}
+      className="min-w-0 rounded-lg border border-onyx-line/70 bg-onyx-bg/40 px-3 py-2"
+    >
       <div className="flex items-baseline justify-between gap-3">
         <Link
           to={`/archivos/${file.id}?returnTo=${returnTo}`}

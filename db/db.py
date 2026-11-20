@@ -214,50 +214,6 @@ class File(Base):
     hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
 
 
-class ChatThread(Base):
-    """Hilo de conversacion interno con la IA.
-
-    Hay varios hilos globales (file_id NULL, pagina Principal, uno por
-    conversacion del historial) y uno por archivo (pagina Archivo). El UNIQUE de
-    un hilo por archivo vive en el SQL como indice parcial (db/init.py).
-    "title" lo genera la IA con el primer mensaje del hilo.
-    """
-
-    __tablename__ = "chat_thread"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    file_id: Mapped[int | None] = mapped_column(
-        ForeignKey("file.id", ondelete="CASCADE")
-    )
-    title: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(MadridDateTime, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(MadridDateTime, nullable=False)
-
-    file: Mapped["File | None"] = relationship()
-    messages: Mapped[list["ChatMessage"]] = relationship(
-        back_populates="thread",
-        cascade="all, delete-orphan",
-        order_by="ChatMessage.id",
-    )
-
-
-class ChatMessage(Base):
-    """Mensaje de un hilo. model queda NULL en los mensajes del usuario."""
-
-    __tablename__ = "chat_message"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    thread_id: Mapped[int] = mapped_column(
-        ForeignKey("chat_thread.id", ondelete="CASCADE"), nullable=False
-    )
-    role: Mapped[str] = mapped_column(String(10), nullable=False)
-    content: Mapped[str] = mapped_column(Text, nullable=False)
-    model: Mapped[str | None] = mapped_column(String(200))
-    created_at: Mapped[datetime] = mapped_column(MadridDateTime, nullable=False)
-
-    thread: Mapped["ChatThread"] = relationship(back_populates="messages")
-
-
 # Tablas intermedias de los ManyToMany de Tema.
 tema_file = Table(
     "tema_file",

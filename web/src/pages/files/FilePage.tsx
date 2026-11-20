@@ -1,9 +1,7 @@
 /**
  * /archivos/:id — detalle de un archivo.
  *
- * Cabecera con nombre editable y datos, preview segun el tipo y el chat de ese
- * archivo. En movil todo va en una columna: preview y despues el chat, que
- * termina antes de la barra de navegacion inferior.
+ * Cabecera con nombre editable y datos, y preview segun el tipo.
  */
 import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
@@ -18,7 +16,6 @@ import { PageHeader } from "../../layout/PageHeader";
 import { getFileFilesFileIdGet, type FileRead } from "../../api/generated";
 import { apiErrorMessage } from "../../lib/api";
 import { formatBytes } from "../../lib/format";
-import { FileChat } from "./FileChat";
 import { FilePreview } from "./FilePreview";
 import { RenameFileModal } from "./RenameFileModal";
 import { FILE_DOC_KIND_LABELS, fileKind, fileTypeLabel, fileUrl } from "./fileUtils";
@@ -31,11 +28,10 @@ export default function FilePage() {
     rawReturnTo && rawReturnTo.startsWith("/") && !rawReturnTo.startsWith("//")
       ? rawReturnTo
       : null;
-  const backTarget = returnTo || "/archivos";
-  const backLabel = returnTo ? "Volver" : "Archivos";
-
   const fileId = Number(id);
   const isValidId = Number.isInteger(fileId) && fileId > 0;
+  const backTarget = returnTo || (isValidId ? `/archivos#archivo-${fileId}` : "/archivos");
+  const backLabel = returnTo ? "Volver" : "Archivos";
 
   const { toast } = useToast();
 
@@ -171,10 +167,6 @@ export default function FilePage() {
 
       <Card className="overflow-hidden">
         <FilePreview file={file} />
-      </Card>
-
-      <Card className="h-[70dvh] min-h-[420px] overflow-hidden lg:h-[640px]">
-        <FileChat fileId={file.id} fileName={file.name} />
       </Card>
 
       <RenameFileModal

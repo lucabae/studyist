@@ -168,7 +168,7 @@ export default function SubjectPage() {
         <>
           <div className="flex items-center justify-between gap-3">
             <Link
-              to="/asignaturas"
+              to={`/asignaturas#asignatura-${subject.id}`}
               className="focus-ring inline-flex items-center gap-1.5 rounded-lg text-[13px] text-onyx-inkMuted transition-colors duration-150 hover:text-onyx-ink"
             >
               <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>

@@ -14,7 +14,6 @@ from server.auth.middleware import AuthMiddleware
 from server.auth.router import router as auth_router
 from server.scripts import files as files_script
 from server.views.asignatura.router import router as asignatura_router
-from server.views.chat.router import router as chat_router
 from server.views.ejercicio.router import router as ejercicio_router
 from server.views.evento.router import router as evento_router
 from server.views.files.router import router as files_router
@@ -277,7 +276,6 @@ def create_app() -> FastAPI:
         auth_router,
         evento_router,
         asignatura_router,
-        chat_router,
         tema_router,
         files_router,
         flashcard_set_router,

@@ -83,8 +83,6 @@ export function TopicFilesSection({
     onFileUpdated?.(data);
   }
 
-  const returnTo = encodeURIComponent(`/temas/${topic.id}`);
-
   return (
     <TopicSectionCard
       title="Archivos"
@@ -103,9 +101,10 @@ export function TopicFilesSection({
         <ul className="flex flex-col gap-0.5">
           {fileIds.map((fileId) => {
             const file = filesById.get(fileId);
+            const fileReturnTo = encodeURIComponent(`/temas/${topic.id}#archivo-${fileId}`);
 
             return (
-              <li key={fileId} className="min-w-0">
+              <li key={fileId} id={`archivo-${fileId}`} className="min-w-0">
                 {file ? (
                   <FileRow
                     file={{
@@ -118,7 +117,7 @@ export function TopicFilesSection({
                     href={fileUrl(file.path)}
                     target="_blank"
                     openIcon="none"
-                    onEdit={() => navigate(`/archivos/${file.id}?returnTo=${returnTo}`)}
+                    onEdit={() => navigate(`/archivos/${file.id}?returnTo=${fileReturnTo}`)}
                     actions={
                       <select
                         value={file.kind}
@@ -137,7 +136,7 @@ export function TopicFilesSection({
                   />
                 ) : (
                   <Link
-                    to={`/archivos/${fileId}?returnTo=${returnTo}`}
+                    to={`/archivos/${fileId}?returnTo=${fileReturnTo}`}
                     className="focus-ring flex items-center rounded-lg px-2 py-2 text-[14px] text-onyx-inkMuted transition-colors duration-150 hover:bg-onyx-surfaceHover hover:text-onyx-ink"
                   >
                     Archivo #{fileId}

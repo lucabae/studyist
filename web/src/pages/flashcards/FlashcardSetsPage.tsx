@@ -299,7 +299,7 @@ export default function FlashcardSetsPage() {
         {sets !== null && sets.length > 0 && (
           <ul className="mt-3 flex flex-col gap-2">
             {sets.map((set) => (
-              <li key={set.id}>
+              <li key={set.id} id={`set-${set.id}`}>
                 <div className="flex min-w-0 items-center gap-1 rounded-xl border border-onyx-line bg-onyx-surface pr-1 transition-colors duration-150 hover:bg-onyx-surfaceHover">
                   <button
                     type="button"

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { updateTemaTemaTemaIdPut, type FileRead, type TemaRead } from "../../api/generated";
 import { Button, useToast } from "../../components";
 import { apiErrorMessage } from "../../lib/api";
+import { isTemarioPdf } from "./subjectProgress";
 import { TopicSectionCard } from "./TopicSectionCard";
 
 interface TopicStudyTimelineProps {
@@ -10,25 +11,33 @@ interface TopicStudyTimelineProps {
   onSaved: (topic: TemaRead) => void;
 }
 
-function documentNumber(name: string): number[] | null {
-  const match = name.trim().match(/^(\d+(?:\.\d+)*)\b/);
-  return match ? match[1].split(".").map(Number) : null;
+function cleanDocName(name: string): string {
+  return name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
 }
 
 function compareDocuments(a: FileRead, b: FileRead): number {
-  const left = documentNumber(a.name);
-  const right = documentNumber(b.name);
-  if (left && right) {
-    for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
-      const difference = (left[index] ?? -1) - (right[index] ?? -1);
-      if (difference !== 0) return difference;
+  // 1. Prioridad por tipo: teoria primero, luego otros, luego examen
+  const kindOrder = (kind?: string) => (kind === "teoria" ? 0 : kind === "otros" ? 1 : 2);
+  const kindDiff = kindOrder(a.kind) - kindOrder(b.kind);
+  if (kindDiff !== 0) return kindDiff;
+
+  // 2. Numero extraido de "tema_2.1", "tema 11", "2-mips", etc.
+  const numA = a.name.match(/(?:tema[_\s-]*)?(\d+(?:\.\d+)*)/i);
+  const numB = b.name.match(/(?:tema[_\s-]*)?(\d+(?:\.\d+)*)/i);
+  if (numA && numB) {
+    const partsA = numA[1].split(".").map(Number);
+    const partsB = numB[1].split(".").map(Number);
+    for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
+      const diff = (partsA[i] ?? 0) - (partsB[i] ?? 0);
+      if (diff !== 0) return diff;
     }
-  } else if (left) {
+  } else if (numA) {
     return -1;
-  } else if (right) {
+  } else if (numB) {
     return 1;
   }
-  return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+
+  return a.name.localeCompare(b.name, "es", { numeric: true, sensitivity: "base" });
 }
 
 export function TopicStudyTimeline({ topic, files, onSaved }: TopicStudyTimelineProps) {
@@ -36,13 +45,7 @@ export function TopicStudyTimeline({ topic, files, onSaved }: TopicStudyTimeline
   const documents = useMemo(
     () =>
       files
-        .filter(
-          (file) =>
-            topic.file_ids?.includes(file.id) &&
-            file.type === "application/pdf" &&
-            file.kind !== "ejercicio" &&
-            (file.page_count ?? 0) > 0,
-        )
+        .filter((file) => topic.file_ids?.includes(file.id) && isTemarioPdf(file))
         .sort(compareDocuments),
     [files, topic.file_ids],
   );
@@ -90,26 +93,54 @@ export function TopicStudyTimeline({ topic, files, onSaved }: TopicStudyTimeline
           <div className="flex h-12 overflow-hidden rounded-lg border border-onyx-line bg-onyx-bg">
             {documents.map((file) => {
               const pages = file.page_count ?? 0;
+              const ratio = totalPages > 0 ? pages / totalPages : 0;
+              const percent = ratio * 100;
+              const isTiny = percent < 6;
+              const isSmall = percent >= 6 && percent < 16;
+              const displayName = cleanDocName(file.name);
+
               return (
                 <div
                   key={file.id}
-                  title={`${file.name} · ${pages} páginas`}
-                  className="flex min-w-0 items-center justify-center border-r border-onyx-bg px-1 text-center text-[11px] text-onyx-inkMuted last:border-r-0"
-                  style={{ width: `${(pages / totalPages) * 100}%` }}
+                  title={`${file.name} · ${pages} páginas (${percent.toFixed(1)}%)`}
+                  className="group relative flex min-w-0 flex-col items-center justify-center border-r-2 border-white bg-onyx-surface py-1 text-center transition-colors duration-150 hover:bg-onyx-surfaceHover last:border-r-0"
+                  style={{ width: `${percent}%` }}
                 >
-                  <span className="truncate">{file.name}</span>
+                  {isTiny ? (
+                    <span className="w-full truncate px-0.5 text-[10px] font-medium text-onyx-inkMuted tabular-nums">
+                      {pages}p
+                    </span>
+                  ) : isSmall ? (
+                    <>
+                      <span className="w-full truncate px-1 text-[11px] font-medium text-onyx-ink">
+                        {displayName}
+                      </span>
+                      <span className="w-full truncate px-0.5 text-[10px] text-onyx-inkFaint tabular-nums">
+                        {pages}p
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-full truncate px-1 text-[11px] font-medium text-onyx-ink">
+                        {displayName}
+                      </span>
+                      <span className="w-full truncate px-1 text-[10px] text-onyx-inkMuted tabular-nums">
+                        {pages} páginas
+                      </span>
+                    </>
+                  )}
                 </div>
               );
             })}
           </div>
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-y-0 w-px bg-amber-300"
+            className="pointer-events-none absolute inset-y-0 w-0.5 bg-amber-300 shadow-[0_0_6px_rgba(252,211,77,0.7)]"
             style={{ left: `${(teacher / totalPages) * 100}%` }}
           />
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-y-0 w-px bg-sky-300"
+            className="pointer-events-none absolute inset-y-0 w-0.5 bg-sky-300 shadow-[0_0_6px_rgba(125,211,252,0.7)]"
             style={{ left: `${(student / totalPages) * 100}%` }}
           />
         </div>

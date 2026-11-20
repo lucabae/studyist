@@ -16,7 +16,6 @@ Difficulty = Literal["hard", "medium", "easy"]
 Semester = Literal[1, 2]
 EventType = Literal["Examen", "Tarea"]
 ModelType = Literal["pdf", "general", "exercise"]
-ChatRole = Literal["user", "assistant"]
 FlashcardAmount = Literal["pocas", "medio", "muchas"]
 # Tipo de ejercicio: texto puro o problema de programacion con test cases.
 ExerciseKind = Literal["programacion", "texto"]
@@ -228,64 +227,6 @@ class FileUpdate(BaseModel):
 
     name: Name
     kind: FileKind | None = None
-
-
-# --- Chat -----------------------------------------------------------------
-
-
-class ChatMessageCreate(BaseModel):
-    """Payload para enviar un mensaje al hilo.
-
-    El hilo se elige por thread_id (una conversacion concreta del historial) o,
-    en la pagina Archivo, por file_id. Para la pagina Principal, sin thread_id
-    ni file_id, la view crea un hilo global nuevo: cada conversacion empieza
-    limpia y el historial se consulta aparte."""
-
-    content: str = Field(min_length=1)
-    thread_id: int | None = None
-    file_id: int | None = None
-    retry: bool = Field(
-        default=False,
-        description="Reintenta la respuesta del ultimo mensaje de usuario sin duplicarlo",
-    )
-    file_mode: FileMode = Field(
-        default="text",
-        description="Solo aplica al archivo adjunto: texto extraido o PDF original",
-    )
-
-
-class ChatMessageRead(BaseModel):
-    """Mensaje ya guardado. model es NULL en los mensajes del usuario."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    thread_id: int
-    role: ChatRole
-    content: str
-    model: str | None = None
-    created_at: datetime
-
-
-class ChatSendResponse(BaseModel):
-    """Respuesta del envio: el mensaje del usuario y el de la IA."""
-
-    user: ChatMessageRead
-    assistant: ChatMessageRead
-    title: str | None = None
-
-
-class ChatThreadRead(BaseModel):
-    """Hilo sin sus mensajes, solo con su titulo y cuantos tiene."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    file_id: int | None = None
-    title: str | None = None
-    created_at: datetime
-    updated_at: datetime
-    message_count: int = 0
 
 
 # --- Flashcard Set --------------------------------------------------------
@@ -508,30 +449,6 @@ class GenerateExerciseResponse(BaseModel):
     files: list[str] = Field(
         default_factory=list, description="Nombres de los archivos que se usaron"
     )
-
-
-class RunExerciseRequest(BaseModel):
-    """Codigo Python del usuario para pasar los test cases del ejercicio."""
-
-    code: str = Field(min_length=1, max_length=20000)
-
-
-class TestCaseResult(BaseModel):
-    """Resultado de un test case: si paso, que devolvio y el error si lo hubo."""
-
-    position: int
-    passed: bool
-    expected: Any = None
-    actual: Any = None
-    error: str | None = None
-
-
-class RunExerciseResponse(BaseModel):
-    """Resultado global de la ejecucion y el detalle por test case."""
-
-    ok: bool
-    results: list[TestCaseResult] = Field(default_factory=list)
-    error: str | None = None
 
 
 # --- Auth -----------------------------------------------------------------

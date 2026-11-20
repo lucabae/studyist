@@ -6,13 +6,10 @@ extension.
 """
 
 import base64
-import json
 import logging
 import mimetypes
 import os
-from dataclasses import dataclass
 from pathlib import Path
-from typing import AsyncIterator
 
 import httpx
 from dotenv import load_dotenv
@@ -37,7 +34,6 @@ MODEL_BY_TYPE: dict[str, str] = {
     "pdf": "openai/gpt-6-luna",
     "general": "openai/gpt-6-luna",
     "exercise": "openai/gpt-6-luna",
-    "title": "openai/gpt-6-luna",
 }
 
 
@@ -79,154 +75,6 @@ async def send(
 
     data = await _post(payload)
     return _extract_content(data), model
-
-
-async def send_chat(
-    messages: list[dict],
-    model_type: str = "general",
-    files: list[str] | None = None,
-    file_mode: FileMode = "text",
-    model_override: str | None = None,
-) -> tuple[str, str]:
-    """Envia una conversacion completa a OpenRouter y devuelve (texto, modelo).
-
-    messages llega ya construido por la view: una lista de dicts con las claves
-    "role" (user/assistant) y "content" (texto). El prompt de sistema no viaja
-    en esa lista: siempre se usa el prompt "general".
-
-    Pasos: resolver el modelo con _resolve_model; cargar el prompt "general" con
-    _load_system_prompt y ponerlo como primer mensaje de rol system; copiar el
-    historial tal cual; si files no es None, codificarlos con _encode_files
-    segun file_mode y
-    adjuntar las partes al ultimo mensaje de rol user (el texto va primero, igual
-    que en send); enviar el payload con _post; devolver _extract_content y el
-    modelo resuelto.
-    """
-    model = _resolve_model(model_type, model_override)
-    payload = _chat_payload(messages, model, files, file_mode)
-
-    data = await _post(payload)
-    return _extract_content(data), model
-
-
-def _last_user_index(history: list[dict]) -> int:
-    """Devuelve el indice del ultimo mensaje de rol user del historial.
-
-    Pasos: recorrer el historial de atras hacia delante; devolver el primer
-    indice cuyo role sea "user"; si no hay ninguno, lanzar ValueError (no se
-    puede adjuntar un archivo a una conversacion sin mensaje de usuario).
-    """
-    for index in range(len(history) - 1, -1, -1):
-        if history[index]["role"] == "user":
-            return index
-    raise ValueError("send_chat necesita al menos un mensaje de rol user")
-
-
-@dataclass
-class ChatStream:
-    """Respuesta en streaming de OpenRouter: modelo resuelto y sus trozos."""
-
-    model: str
-    chunks: AsyncIterator[str]
-
-
-async def open_chat_stream(
-    messages: list[dict],
-    model_type: str = "general",
-    files: list[str] | None = None,
-    file_mode: FileMode = "text",
-    model_override: str | None = None,
-) -> ChatStream:
-    """Prepara una respuesta en streaming con el prompt "general".
-
-    Pasos: resolver el modelo; montar el payload con _chat_payload (historial,
-    prompt de sistema y archivos adjuntos al ultimo mensaje de user); anadir
-    "stream": True; devolver un ChatStream con el modelo y el generador que
-    pide la respuesta a OpenRouter.
-
-    El generador no abre la conexion hasta que se consume: asi los errores de
-    red se pueden capturar mientras ya se esta enviando la respuesta al
-    cliente.
-    """
-    model = _resolve_model(model_type, model_override)
-    payload = _chat_payload(messages, model, files, file_mode)
-    payload["stream"] = True
-    return ChatStream(model=model, chunks=_stream_chunks(payload))
-
-
-async def _stream_chunks(payload: dict) -> AsyncIterator[str]:
-    """Lee el SSE de OpenRouter y va cediendo los trozos de texto.
-
-    Pasos: abrir un stream POST con _headers(); si el status no es 2xx, leer el
-    cuerpo y lanzar RuntimeError; recorrer las lineas; ignorar las que no
-    empiezan por "data:"; parar con [DONE]; parsear el JSON de cada evento y
-    ceder choices[0].delta.content cuando no este vacio. Si un evento trae
-    "error", lanzar RuntimeError con su mensaje.
-    """
-    async with httpx.AsyncClient(timeout=TIMEOUT_SECONDS) as client:
-        async with client.stream(
-            "POST", OPENROUTER_URL, json=payload, headers=_headers()
-        ) as response:
-            if not response.is_success:
-                body = (await response.aread()).decode("utf-8", errors="replace")
-                logger.error(
-                    "OpenRouter devolvio %s en streaming: %s",
-                    response.status_code,
-                    body[:500],
-                )
-                raise RuntimeError(
-                    f"OpenRouter devolvio {response.status_code}: {body[:500]}"
-                )
-
-            async for line in response.aiter_lines():
-                if not line.startswith("data:"):
-                    continue
-                raw = line[5:].strip()
-                if raw == "[DONE]":
-                    break
-                try:
-                    event = json.loads(raw)
-                except json.JSONDecodeError:
-                    logger.warning("Evento de streaming ilegible: %r", raw[:200])
-                    continue
-
-                if event.get("error"):
-                    raise RuntimeError(f"OpenRouter devolvio un error: {event['error']}")
-
-                choices = event.get("choices") or []
-                if not choices:
-                    continue
-                delta = (choices[0].get("delta") or {}).get("content")
-                if delta:
-                    yield delta
-
-
-def _chat_payload(
-    messages: list[dict],
-    model: str,
-    files: list[str] | None,
-    file_mode: FileMode = "text",
-) -> dict:
-    """Monta el payload de chat con el prompt "general" y los archivos.
-
-    Pasos: cargar el prompt de sistema; copiar el historial (role/content);
-    si files no es None, adjuntar las partes de _encode_files al ultimo mensaje
-    de rol user, con el texto primero; devolver el dict con model y messages.
-    """
-    system = _load_system_prompt("general")
-    history = [
-        {"role": item["role"], "content": item["content"]} for item in messages
-    ]
-
-    if files:
-        last_user_index = _last_user_index(history)
-        parts = _encode_files(files, file_mode)
-        history[last_user_index]["content"] = [
-            {"type": "text", "text": history[last_user_index]["content"]},
-            *parts,
-        ]
-
-    return {"model": model, "messages": [{"role": "system", "content": system}, *history]}
 
 
 def _headers() -> dict:

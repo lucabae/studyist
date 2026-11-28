@@ -4,13 +4,11 @@
 
 # Studyist
 
-A single-user, local-first workspace for university study: courses and topics, notes (PDF and images), calendar events synced over CalDAV, spaced-repetition flashcards, an AI chat, and generated programming exercises.
+A single-user, local-first workspace for university study: courses and nested topics, notes (PDF and images), a daily "Hoy" dashboard, calendar events synced over CalDAV, spaced-repetition flashcards, and generated programming exercises with an in-browser Python runner.
 
 There is no sign-up and no multi-user logic. The app runs on your machine, is protected by one password, and is not meant to be exposed to the internet.
 
 ## Screens
-
-![Studyist home: AI chat with saved conversations](assets/screens/home.png)
 
 ![Subject page: topic tree with progress and materials](assets/screens/subject.png)
 
@@ -18,12 +16,12 @@ There is no sign-up and no multi-user logic. The app runs on your machine, is pr
 
 ## What it does
 
-- **Courses and topics** with a nested structure and per-topic file attachments.
+- **Hoy dashboard**: daily overview of upcoming deadlines, events, and study progress across courses.
+- **Courses and topics**: nested topic tree with progress tracking, remaining time estimates, and per-topic file attachments.
 - **Files**: PDFs and raster images up to 30 MB, thumbnails, and full-text search over PDF content with SQLite FTS5.
 - **Calendar**: events (exams, tasks) linked to courses and topics, pushed one-way to iCloud with CalDAV and tracked by UID/ETag.
-- **Flashcards**: hand-written sets or generated from a topic, with spaced repetition and review sessions.
-- **AI**: chat with streaming responses, flashcard generation, and exercise generation through OpenRouter.
-- **Exercises**: stored test cases with an optional sandboxed runner (disabled by default).
+- **Flashcards**: hand-written sets or generated from topic material via OpenRouter, with spaced repetition and review sessions.
+- **Exercises**: generated or custom programming exercises with stored test cases and an in-browser Python runner powered by Pyodide (WebAssembly).
 - **Auth**: one local password (PBKDF2-HMAC-SHA256, 600k iterations) and JWT access/refresh tokens.
 
 ## Stack
@@ -34,20 +32,19 @@ There is no sign-up and no multi-user logic. The app runs on your machine, is pr
 | Data | SQLite with FTS5 |
 | Auth | PyJWT (HS256), PBKDF2 password hash, per-IP login rate limit |
 | Integrations | CalDAV/iCloud, OpenRouter, pypdfium2, Pillow |
-| Frontend | React 18, TypeScript, Vite, Tailwind CSS, CodeMirror |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, CodeMirror, Pyodide |
 | Tests | pytest (backend), `tsc --noEmit` (frontend) |
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  UI["React SPA<br/>Vite + Tailwind"] -->|Bearer JWT| API["FastAPI<br/>routers + middleware"]
+  UI["React SPA<br/>Vite + Tailwind + Pyodide"] -->|Bearer JWT| API["FastAPI<br/>routers + middleware"]
   API --> DB[("SQLite<br/>FTS5")]
   API --> FS["Local files<br/>+ thumbnails"]
   API -->|CalDAV| IC["iCloud Calendar"]
   API -->|HTTP| OR["OpenRouter"]
   OR --> API
-  API -->|SSE| UI
 ```
 
 The backend listens on `127.0.0.1:8080`; the frontend dev server runs on `5173` and proxies API calls. Every route except login and refresh requires a Bearer token, including the `/files` mount.
@@ -62,14 +59,13 @@ erDiagram
   TEMA ||--o{ FLASHCARD_SET : groups
   FLASHCARD_SET ||--o{ FLASHCARD : contains
   TEMA ||--o{ EJERCICIO : generates
-  CHAT_THREAD ||--o{ CHAT_MESSAGE : keeps
 ```
 
 `FILE` is indexed into a virtual `file_fts` table by triggers, so search stays in sync on insert, update and delete.
 
 ## API
 
-Routers: `/auth`, `/asignatura`, `/tema`, `/files`, `/evento`, `/flashcard`, `/flashcard_set`, `/chat`, `/openrouter`, `/ejercicio`, `/study`.
+Routers: `/auth`, `/asignatura`, `/tema`, `/files`, `/evento`, `/flashcard`, `/flashcard_set`, `/openrouter`, `/ejercicio`, `/study`.
 
 The generated OpenAPI document lives at `web/openapi.json`, and the TypeScript client is generated from it with `@hey-api/openapi-ts`. Interactive docs (`/docs`, `/redoc`) are disabled at runtime.
 
@@ -99,7 +95,7 @@ Minimum environment:
 | Variable | Required | Purpose |
 |---|---|---|
 | `JWT_SECRET` | Yes | Signs session tokens. Generate with `openssl rand -hex 32`. |
-| `OPENROUTER_API_KEY` | No | Chat, flashcard and exercise generation. |
+| `OPENROUTER_API_KEY` | No | Flashcard and exercise generation. |
 | `ICLOUD_MAIL` | No | iCloud account for CalDAV events. |
 | `ICLOUD_APP_PASSWORD` | No | App-specific password. |
 | `ICLOUD_CALENDAR_NAME` | No | Target calendar, default `Educación`. |
@@ -122,14 +118,14 @@ The suite uses a temporary database and a stubbed OpenRouter client, so it neith
 - Access tokens last 2 days, refresh tokens 4 days, with rotation on refresh.
 - Login is rate-limited to 10 failures per IP per 15 minutes.
 - Uploads are validated by content, not extension; HTML and SVG are rejected.
-- Exercise execution is disabled by default (`EXERCISE_RUN_ENABLED = False`).
+- Exercise code runs in the browser inside a Pyodide Web Worker instead of executing on the server.
 
 ## Structure
 
 ```
 server/        FastAPI app: main, auth, views, scripts
 db/            SQL schema and SQLAlchemy models
-web/           React + TypeScript frontend
+web/           React + TypeScript frontend (includes Pyodide worker)
 prompts/       Model prompts
 sh/            Start, database init, password hashing, API client generation
 tests/         pytest suite
